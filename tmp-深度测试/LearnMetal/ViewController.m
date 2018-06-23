@@ -42,6 +42,7 @@
     
     self.mtkView = [[MTKView alloc] initWithFrame:self.view.bounds];
     self.mtkView.device = MTLCreateSystemDefaultDevice();
+    self.mtkView.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
     [self.view insertSubview:self.mtkView atIndex:0];
     self.mtkView.delegate = self;
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
@@ -64,6 +65,8 @@
     pipelineStateDescriptor.vertexFunction = vertexFunction;
     pipelineStateDescriptor.fragmentFunction = fragmentFunction;
     pipelineStateDescriptor.colorAttachments[0].pixelFormat = self.mtkView.colorPixelFormat;
+    pipelineStateDescriptor.depthAttachmentPixelFormat =  self.mtkView.depthStencilPixelFormat;
+    pipelineStateDescriptor.stencilAttachmentPixelFormat =  self.mtkView.depthStencilPixelFormat;
     self.pipelineState = [self.mtkView.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
                                                                          error:NULL];
     
@@ -203,6 +206,8 @@
     
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
+    renderPassDescriptor.depthAttachment.texture = self.mtkView.depthStencilTexture;
+    renderPassDescriptor.stencilAttachment.texture = self.mtkView.depthStencilTexture;
     
     if(renderPassDescriptor != nil)
     {
@@ -213,8 +218,9 @@
 
         [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }];
         [renderEncoder setRenderPipelineState:self.pipelineState];
-        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
-        [renderEncoder setCullMode:MTLCullModeBack];
+//        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
+//        [renderEncoder setCullMode:MTLCullModeBack];
+        [renderEncoder setDepthStencilState:self.depthStencilState];
         
         [self setupMatrixWithEncoder:renderEncoder];
         

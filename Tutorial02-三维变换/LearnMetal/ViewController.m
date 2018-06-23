@@ -6,6 +6,8 @@
 //  Copyright © 2018年 loyinglin. All rights reserved.
 //
 @import MetalKit;
+@import GLKit;
+
 #import "LYShaderTypes.h"
 #import "ViewController.h"
 
@@ -13,6 +15,11 @@
 
 // view
 @property (nonatomic, strong) MTKView *mtkView;
+@property (nonatomic, strong) IBOutlet UISwitch *rotationX;
+@property (nonatomic, strong) IBOutlet UISwitch *rotationY;
+@property (nonatomic, strong) IBOutlet UISwitch *rotationZ;
+
+@property (nonatomic, strong) IBOutlet UISlider *slider;
 
 // data
 @property (nonatomic, assign) vector_uint2 viewportSize;
@@ -20,7 +27,8 @@
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
 @property (nonatomic, strong) id<MTLTexture> texture;
 @property (nonatomic, strong) id<MTLBuffer> vertices;
-@property (nonatomic, assign) NSUInteger numVertices;
+@property (nonatomic, strong) id<MTLBuffer> indexs;
+@property (nonatomic, assign) NSUInteger indexCount;
 
 
 @end
@@ -33,7 +41,7 @@
     
     self.mtkView = [[MTKView alloc] initWithFrame:self.view.bounds];
     self.mtkView.device = MTLCreateSystemDefaultDevice();
-    self.view = self.mtkView;
+    [self.view insertSubview:self.mtkView atIndex:0];
     self.mtkView.delegate = self;
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
     
@@ -63,18 +71,28 @@
 - (void)setupVertex {
     static const LYVertex quadVertices[] =
     {
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5, -0.5, 0.0, 1.0 },  { 0.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
-        
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
-        { {  0.5,  0.5, 0.0, 1.0 },  { 1.f, 0.f } },
+        {{-0.5f, 0.5f, 0.0f, 1.0f},      {0.0f, 0.0f, 0.5f},       {0.0f, 1.0f}},//左上
+        {{0.5f, 0.5f, 0.0f, 1.0f},       {0.0f, 0.5f, 0.0f},       {1.0f, 1.0f}},//右上
+        {{-0.5f, -0.5f, 0.0f, 1.0f},     {0.5f, 0.0f, 1.0f},       {0.0f, 0.0f}},//左下
+        {{0.5f, -0.5f, 0.0f, 1.0f},      {0.0f, 0.0f, 0.5f},       {1.0f, 0.0f}},//右下
+        {{0.0f, 0.0f, 1.0f, 1.0f},       {1.0f, 1.0f, 1.0f},       {0.5f, 0.5f}},//顶点
     };
     self.vertices = [self.mtkView.device newBufferWithBytes:quadVertices
                                                  length:sizeof(quadVertices)
                                                 options:MTLResourceStorageModeShared];
-    self.numVertices = sizeof(quadVertices) / sizeof(LYVertex);
+    static int indices[] =
+    {
+        0, 3, 2,
+        0, 1, 3,
+        0, 2, 4,
+        0, 4, 1,
+        2, 3, 4,
+        1, 4, 3,
+    };
+    self.indexs = [self.mtkView.device newBufferWithBytes:indices
+                                                     length:sizeof(indices)
+                                                    options:MTLResourceStorageModeShared];
+    self.indexCount = sizeof(indices) / sizeof(int);
 }
 
 - (void)setupTexture {
@@ -125,6 +143,47 @@
 }
 
 
+/**
+ 找了很多文档，都没有发现metalKit或者simd相关的接口可以快捷创建矩阵的，于是只能从GLKit里面借力
+
+ @param matrix GLKit的矩阵
+ @return metal用的矩阵
+ */
+- (matrix_float4x4)getMetalMatrixFromGLKMatrix:(GLKMatrix4)matrix {
+    matrix_float4x4 ret = (matrix_float4x4){
+        simd_make_float4(matrix.m00, matrix.m01, matrix.m02, matrix.m03),
+        simd_make_float4(matrix.m10, matrix.m11, matrix.m12, matrix.m13),
+        simd_make_float4(matrix.m20, matrix.m21, matrix.m22, matrix.m23),
+        simd_make_float4(matrix.m30, matrix.m31, matrix.m32, matrix.m33),
+    };
+    return ret;
+}
+
+- (void)setupMatrixWithEncoder:(id<MTLRenderCommandEncoder>)renderEncoder {
+    CGSize size = self.view.bounds.size;
+    float aspect = fabs(size.width / size.height);
+    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(90.0), aspect, 0.1f, 10.f);
+    GLKMatrix4 modelViewMatrix = GLKMatrix4Translate(GLKMatrix4Identity, 0.0f, 0.0f, -2.0f);
+    static float x = 0.0, y = 0.0, z = M_PI;
+    if (self.rotationX.on) {
+        x += self.slider.value;
+    }
+    if (self.rotationY.on) {
+        y += self.slider.value;
+    }
+    if (self.rotationZ.on) {
+        z += self.slider.value;
+    }
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, x, 1, 0, 0);
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, y, 0, 1, 0);
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, z, 0, 0, 1);
+    
+    LYMatrix matrix = {[self getMetalMatrixFromGLKMatrix:projectionMatrix], [self getMetalMatrixFromGLKMatrix:modelViewMatrix]};
+    
+    [renderEncoder setVertexBytes:&matrix
+                           length:sizeof(matrix)
+                          atIndex:LYVertexInputIndexMatrix];
+}
 
 #pragma mark - delegate
 
@@ -140,21 +199,29 @@
     if(renderPassDescriptor != nil)
     {
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.5, 0.5, 1.0f);
+        renderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
+        
         id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
 
         [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }];
         [renderEncoder setRenderPipelineState:self.pipelineState];
+        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
+        [renderEncoder setCullMode:MTLCullModeBack];
+        
+        [self setupMatrixWithEncoder:renderEncoder];
         
         [renderEncoder setVertexBuffer:self.vertices
                                 offset:0
-                               atIndex:0];
-
-        [renderEncoder setFragmentTexture:self.texture
-                                  atIndex:0];
+                               atIndex:LYVertexInputIndexVertices];
         
-        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
-                          vertexStart:0
-                          vertexCount:self.numVertices];
+        [renderEncoder setFragmentTexture:self.texture
+                                  atIndex:LYFragmentInputIndexTexture];
+        
+        [renderEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                                  indexCount:self.indexCount
+                                   indexType:MTLIndexTypeUInt32
+                                 indexBuffer:self.indexs
+                           indexBufferOffset:0];
         
         [renderEncoder endEncoding];
         
