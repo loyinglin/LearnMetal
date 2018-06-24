@@ -31,8 +31,9 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
     
+    // 初始化 MTKView
     self.mtkView = [[MTKView alloc] initWithFrame:self.view.bounds];
-    self.mtkView.device = MTLCreateSystemDefaultDevice();
+    self.mtkView.device = MTLCreateSystemDefaultDevice(); // 获取默认的device
     self.view = self.mtkView;
     self.mtkView.delegate = self;
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
@@ -46,23 +47,24 @@
     [self setupTexture];
 }
 
+// 设置渲染管道
 -(void)setupPipeline {
-    id<MTLLibrary> defaultLibrary = [self.mtkView.device newDefaultLibrary];
-    id<MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
-    id<MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"samplingShader"];
+    id<MTLLibrary> defaultLibrary = [self.mtkView.device newDefaultLibrary]; // .metal
+    id<MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"]; // 顶点shader，vertexShader是函数名
+    id<MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"samplingShader"]; // 片元shader，samplingShader是函数名
     
     MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
     pipelineStateDescriptor.vertexFunction = vertexFunction;
     pipelineStateDescriptor.fragmentFunction = fragmentFunction;
     pipelineStateDescriptor.colorAttachments[0].pixelFormat = self.mtkView.colorPixelFormat;
     self.pipelineState = [self.mtkView.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
-                                                                         error:NULL];
-    self.commandQueue = [self.mtkView.device newCommandQueue];
+                                                                         error:NULL]; // 创建图形渲染管道，耗性能操作不宜频繁调用
+    self.commandQueue = [self.mtkView.device newCommandQueue]; // CommandQueue是渲染指令队列，保证渲染指令有序地提交到GPU
 }
 
 - (void)setupVertex {
     static const LYVertex quadVertices[] =
-    {
+    {   // 顶点坐标，分别是x、y、z、w；    纹理坐标，x、y；
         { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
         { { -0.5, -0.5, 0.0, 1.0 },  { 0.f, 1.f } },
         { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
@@ -73,32 +75,27 @@
     };
     self.vertices = [self.mtkView.device newBufferWithBytes:quadVertices
                                                  length:sizeof(quadVertices)
-                                                options:MTLResourceStorageModeShared];
-    self.numVertices = sizeof(quadVertices) / sizeof(LYVertex);
+                                                options:MTLResourceStorageModeShared]; // 创建顶点缓存
+    self.numVertices = sizeof(quadVertices) / sizeof(LYVertex); // 顶点个数
 }
 
 - (void)setupTexture {
     UIImage *image = [UIImage imageNamed:@"abc"];
-    if(!image)
-    {
-        NSLog(@"Failed to create the image");
-        return ;
-    }
-    
+    // 纹理描述符
     MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
     textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm;
     textureDescriptor.width = image.size.width;
     textureDescriptor.height = image.size.height;
-    self.texture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor];
+    self.texture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor]; // 创建纹理
     
-    MTLRegion region = {{ 0, 0, 0 }, {image.size.width, image.size.height, 1}};
+    MTLRegion region = {{ 0, 0, 0 }, {image.size.width, image.size.height, 1}}; // 纹理上传的范围
     Byte *imageBytes = [self loadImage:image];
-    if (imageBytes) {
+    if (imageBytes) { // UIImage的数据需要转成二进制才能上传，且不用jpg、png的NSData
         [self.texture replaceRegion:region
                     mipmapLevel:0
                       withBytes:imageBytes
                     bytesPerRow:4 * image.size.width];
-        free(imageBytes);
+        free(imageBytes); // 需要释放资源
         imageBytes = NULL;
     }
 }
@@ -133,35 +130,34 @@
 }
 
 - (void)drawInMTKView:(MTKView *)view {
-    
+    // 每次渲染都要单独创建一个CommandBuffer
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
-    
+    // MTLRenderPassDescriptor描述一系列attachments的值，类似GL的FrameBuffer；同时也用来创建MTLRenderCommandEncoder
     if(renderPassDescriptor != nil)
     {
-        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.5, 0.5, 1.0f);
-        id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
-
-        [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }];
-        [renderEncoder setRenderPipelineState:self.pipelineState];
+        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.5, 0.5, 1.0f); // 设置默认颜色
+        id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; //编码绘制指令的Encoder
+        [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }]; // 设置显示区域
+        [renderEncoder setRenderPipelineState:self.pipelineState]; // 设置渲染管道，以保证顶点和片元两个shader会被调用
         
         [renderEncoder setVertexBuffer:self.vertices
                                 offset:0
-                               atIndex:0];
+                               atIndex:0]; // 设置顶点缓存
 
         [renderEncoder setFragmentTexture:self.texture
-                                  atIndex:0];
+                                  atIndex:0]; // 设置纹理
         
         [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
                           vertexStart:0
-                          vertexCount:self.numVertices];
+                          vertexCount:self.numVertices]; // 绘制
         
-        [renderEncoder endEncoding];
+        [renderEncoder endEncoding]; // 结束
         
-        [commandBuffer presentDrawable:view.currentDrawable];
+        [commandBuffer presentDrawable:view.currentDrawable]; // 显示
     }
     
-    [commandBuffer commit];
+    [commandBuffer commit]; // 提交；
 }
 
 
