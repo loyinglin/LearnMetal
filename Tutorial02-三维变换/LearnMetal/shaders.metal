@@ -19,7 +19,7 @@ typedef struct
     
 } RasterizerData;
 
-vertex RasterizerData
+vertex RasterizerData // 顶点
 vertexShader(uint vertexID [[ vertex_id ]],
              constant LYVertex *vertexArray [[ buffer(LYVertexInputIndexVertices) ]],
              constant LYMatrix *matrix [[ buffer(LYVertexInputIndexMatrix) ]]) {
@@ -31,14 +31,14 @@ vertexShader(uint vertexID [[ vertex_id ]],
     return out;
 }
 
-fragment float4
+fragment float4 // 片元
 samplingShader(RasterizerData input [[stage_in]],
                texture2d<half> textureColor [[ texture(LYFragmentInputIndexTexture) ]])
 {
     constexpr sampler textureSampler (mag_filter::linear,
                                       min_filter::linear);
     
-    half4 colorTex = textureColor.sample(textureSampler, input.textureCoordinate);
-//    half4 colorVex = half4(input.pixelColor.x, input.pixelColor.y, input.pixelColor.z, 1);
+//    half4 colorTex = textureColor.sample(textureSampler, input.textureCoordinate);
+    half4 colorTex = half4(input.pixelColor.x, input.pixelColor.y, input.pixelColor.z, 1);
     return float4(colorTex);
 }

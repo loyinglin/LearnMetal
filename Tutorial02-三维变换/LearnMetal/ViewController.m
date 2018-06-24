@@ -70,7 +70,7 @@
 
 - (void)setupVertex {
     static const LYVertex quadVertices[] =
-    {
+    {  // 顶点坐标                          顶点颜色                    纹理坐标
         {{-0.5f, 0.5f, 0.0f, 1.0f},      {0.0f, 0.0f, 0.5f},       {0.0f, 1.0f}},//左上
         {{0.5f, 0.5f, 0.0f, 1.0f},       {0.0f, 0.5f, 0.0f},       {1.0f, 1.0f}},//右上
         {{-0.5f, -0.5f, 0.0f, 1.0f},     {0.5f, 0.0f, 1.0f},       {0.0f, 0.0f}},//左下
@@ -81,7 +81,7 @@
                                                  length:sizeof(quadVertices)
                                                 options:MTLResourceStorageModeShared];
     static int indices[] =
-    {
+    { // 索引
         0, 3, 2,
         0, 1, 3,
         0, 2, 4,
@@ -97,12 +97,6 @@
 
 - (void)setupTexture {
     UIImage *image = [UIImage imageNamed:@"abc"];
-    if(!image)
-    {
-        NSLog(@"Failed to create the image");
-        return ;
-    }
-    
     MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
     textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm;
     textureDescriptor.width = image.size.width;
@@ -205,14 +199,13 @@
 
         [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }];
         [renderEncoder setRenderPipelineState:self.pipelineState];
-        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
-        [renderEncoder setCullMode:MTLCullModeBack];
-        
         [self setupMatrixWithEncoder:renderEncoder];
         
         [renderEncoder setVertexBuffer:self.vertices
                                 offset:0
                                atIndex:LYVertexInputIndexVertices];
+        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
+        [renderEncoder setCullMode:MTLCullModeBack];
         
         [renderEncoder setFragmentTexture:self.texture
                                   atIndex:LYFragmentInputIndexTexture];
