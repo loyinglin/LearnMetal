@@ -21,6 +21,11 @@
 
 @property (nonatomic, strong) IBOutlet UISlider *slider;
 
+
+@property (assign, nonatomic) GLKVector3 eyePosition;
+@property (assign, nonatomic) GLKVector3 lookAtPosition;
+@property (assign, nonatomic) GLKVector3 upVector;
+
 // data
 @property (nonatomic, assign) vector_uint2 viewportSize;
 @property (nonatomic, strong) id<MTLRenderPipelineState> pipelineState;
@@ -45,6 +50,13 @@
     [self.view insertSubview:self.mtkView atIndex:0];
     self.mtkView.delegate = self;
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
+    
+    
+    // 观察参数
+    self.eyePosition = GLKVector3Make(0.0, 0.0, 0.0);
+    self.lookAtPosition = GLKVector3Make(0.0, 0.0, 0.0);
+    self.upVector = GLKVector3Make(0.0, 1.0, 0.0);
+    
     
     [self customInit];
 }
@@ -225,24 +237,39 @@
 }
 
 - (void)setupMatrixWithEncoder:(id<MTLRenderCommandEncoder>)renderEncoder {
-    CGSize size = self.view.bounds.size;
-    float aspect = fabs(size.width / size.height);
-    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(90.0), aspect, 0.1f, 10.f);
-    GLKMatrix4 modelViewMatrix = GLKMatrix4Identity;
-//    modelViewMatrix = GLKMatrix4Translate(modelViewMatrix, 0, 0, -3);
-    static float x = 0.0, y = 0.0, z = 0.0;
+    
+    static float eyeAngle = 0, lookAngle = 0;
     if (self.rotationX.on) {
-        x += self.slider.value;
+        eyeAngle += self.slider.value;
     }
     if (self.rotationY.on) {
-        y += self.slider.value;
+        lookAngle += self.slider.value;
     }
-    if (self.rotationZ.on) {
-        z += self.slider.value;
-    }
-    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, x, 1, 0, 0);
-    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, y, 0, 1, 0);
-    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, z, 0, 0, 1);
+    
+    // 调整眼睛的位置
+    self.eyePosition = GLKVector3Make(0.4f * sinf(eyeAngle),
+                                      0.0f,
+                                      0.4f * cosf(eyeAngle));
+    
+    // 调整观察的位置
+    self.lookAtPosition = GLKVector3Make(0.0,
+                                         0.4f * sinf(lookAngle),
+                                         0.0);
+    
+    
+    CGSize size = self.view.bounds.size;
+    float aspect = fabs(size.width / size.height);
+    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(85.0f), aspect, 0.1f, 10.f);
+    GLKMatrix4 modelViewMatrix = GLKMatrix4MakeLookAt(
+                                                      self.eyePosition.x,
+                                                      self.eyePosition.y,
+                                                      self.eyePosition.z,
+                                                      self.lookAtPosition.x,
+                                                      self.lookAtPosition.y,
+                                                      self.lookAtPosition.z,
+                                                      self.upVector.x,
+                                                      self.upVector.y,
+                                                      self.upVector.z);
     
     LYMatrix matrix = {[self getMetalMatrixFromGLKMatrix:projectionMatrix], [self getMetalMatrixFromGLKMatrix:modelViewMatrix]};
     
