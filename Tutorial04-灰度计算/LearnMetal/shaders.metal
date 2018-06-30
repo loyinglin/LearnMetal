@@ -14,7 +14,6 @@ using namespace metal;
 typedef struct
 {
     float4 clipSpacePosition [[position]]; // position的修饰符表示这个是顶点
-    
     float2 textureCoordinate; // 纹理坐标，会做插值处理
     
 } RasterizerData;
@@ -41,22 +40,19 @@ samplingShader(RasterizerData input [[stage_in]], // stage_in表示这个数据�
 }
 
 
-constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722);
+constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722); // 把rgba转成亮度值
 
 kernel void
-sobelKernel(texture2d<half, access::read>  inTexture  [[texture(LYFragmentTextureIndexTextureSource)]],
-                texture2d<half, access::write> outTexture [[texture(LYFragmentTextureIndexTextureDest)]],
-                uint2                          gid         [[thread_position_in_grid]])
+sobelKernel(texture2d<half, access::read>  sourceTexture  [[texture(LYFragmentTextureIndexTextureSource)]],
+                texture2d<half, access::write> destTexture [[texture(LYFragmentTextureIndexTextureDest)]],
+                uint2                          grid         [[thread_position_in_grid]])
 {
-    // Check if the pixel is within the bounds of the output texture
-    if((gid.x >= outTexture.get_width()) || (gid.y >= outTexture.get_height()))
+    // 边界保护
+    if(grid.x <= destTexture.get_width() && grid.y <= destTexture.get_height())
     {
-        // Return early if the pixel is out of bounds
-        return;
+        half4 color  = sourceTexture.read(grid); // 初始颜色
+        half  gray     = dot(color.rgb, kRec709Luma); // 转换成亮度
+        destTexture.write(half4(gray, gray, gray, 1.0), grid); // 写回对应纹理
     }
-    
-    half4 inColor  = inTexture.read(gid);
-    half  gray     = dot(inColor.rgb, kRec709Luma);
-    outTexture.write(half4(gray, gray, gray, 1.0), gid);
 }
 

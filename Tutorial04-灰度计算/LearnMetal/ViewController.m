@@ -65,11 +65,14 @@
     pipelineStateDescriptor.vertexFunction = vertexFunction;
     pipelineStateDescriptor.fragmentFunction = fragmentFunction;
     pipelineStateDescriptor.colorAttachments[0].pixelFormat = self.mtkView.colorPixelFormat;
+    // 创建图形渲染管道，耗性能操作不宜频繁调用
     self.renderPipelineState = [self.mtkView.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
-                                                                                   error:NULL]; // 创建图形渲染管道，耗性能操作不宜频繁调用
+                                                                                   error:NULL];
+    // 创建计算管道，耗性能操作不宜频繁调用
     self.computePipelineState = [self.mtkView.device newComputePipelineStateWithFunction:kernelFunction
                                                                                    error:NULL];
-    self.commandQueue = [self.mtkView.device newCommandQueue]; // CommandQueue是渲染指令队列，保证渲染指令有序地提交到GPU
+    // CommandQueue是渲染指令队列，保证渲染指令有序地提交到GPU
+    self.commandQueue = [self.mtkView.device newCommandQueue];
 }
 
 - (void)setupVertex {
@@ -155,25 +158,23 @@
     // 每次渲染都要单独创建一个CommandBuffer
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     
-    
-    
     {
+        // 创建计算指令的编码器
         id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-        
+        // 设置计算管道，以调用shaders.metal中的内核计算函数
         [computeEncoder setComputePipelineState:self.computePipelineState];
+        // 输入纹理
         [computeEncoder setTexture:self.sourceTexture
                            atIndex:LYFragmentTextureIndexTextureSource];
-        
+        // 输出纹理
         [computeEncoder setTexture:self.destTexture
                            atIndex:LYFragmentTextureIndexTextureDest];
-        
+        // 计算区域
         [computeEncoder dispatchThreadgroups:self.groupCount
                        threadsPerThreadgroup:self.groupSize];
-        
+        // 调用endEncoding释放编码器，下个encoder才能创建
         [computeEncoder endEncoding];
     }
-    
-    
     
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
     // MTLRenderPassDescriptor描述一系列attachments的值，类似GL的FrameBuffer；同时也用来创建MTLRenderCommandEncoder

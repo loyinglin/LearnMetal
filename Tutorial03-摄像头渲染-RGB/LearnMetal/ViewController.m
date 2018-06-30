@@ -42,22 +42,25 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
     
+    // 设置Metal 相关
     self.mtkView = [[MTKView alloc] initWithFrame:self.view.bounds];
     self.mtkView.device = MTLCreateSystemDefaultDevice();
     [self.view insertSubview:self.mtkView atIndex:0];
     self.mtkView.delegate = self;
     self.mtkView.framebufferOnly = NO;
+//    self.mtkView.transform = CGAffineTransformMakeRotation(M_PI / 2);
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
     self.commandQueue = [self.mtkView.device newCommandQueue];
     CVMetalTextureCacheCreate(NULL, NULL, self.mtkView.device, NULL, &_textureCache);
     
+    // 设置采集相关
     [self setupCaptureSession];
 }
 
 - (void)setupCaptureSession {
     
     self.mCaptureSession = [[AVCaptureSession alloc] init];
-    self.mCaptureSession.sessionPreset = AVCaptureSessionPreset640x480;
+    self.mCaptureSession.sessionPreset = AVCaptureSessionPreset1920x1080;
     
     self.mProcessQueue = dispatch_queue_create("mProcessQueue", DISPATCH_QUEUE_SERIAL);
     
@@ -65,7 +68,7 @@
     NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
     for (AVCaptureDevice *device in devices)
     {
-        if ([device position] == AVCaptureDevicePositionFront)
+        if ([device position] == AVCaptureDevicePositionBack)
         {
             inputCamera = device;
         }
@@ -80,7 +83,7 @@
     
     self.mCaptureDeviceOutput = [[AVCaptureVideoDataOutput alloc] init];
     [self.mCaptureDeviceOutput setAlwaysDiscardsLateVideoFrames:NO];
-    
+    // 这里设置格式为BGRA，而不用YUV的颜色空间，避免使用Shader转换
     [self.mCaptureDeviceOutput setVideoSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
     [self.mCaptureDeviceOutput setSampleBufferDelegate:self queue:self.mProcessQueue];
     if ([self.mCaptureSession canAddOutput:self.mCaptureDeviceOutput]) {
@@ -88,7 +91,7 @@
     }
     
     AVCaptureConnection *connection = [self.mCaptureDeviceOutput connectionWithMediaType:AVMediaTypeVideo];
-    [connection setVideoOrientation:AVCaptureVideoOrientationPortraitUpsideDown];
+    [connection setVideoOrientation:AVCaptureVideoOrientationPortrait];
     
     [self.mCaptureSession startRunning];
     
@@ -103,14 +106,14 @@
 - (void)drawInMTKView:(MTKView *)view {
     
     if (self.texture) {
-        id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
+        id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer]; // 创建指令缓冲
         
-        id<MTLTexture> drawingTexture = view.currentDrawable.texture;
+        id<MTLTexture> drawingTexture = view.currentDrawable.texture; // 把MKTView作为目标纹理
         
-        MPSImageGaussianBlur *filter = [[MPSImageGaussianBlur alloc] initWithDevice:self.mtkView.device sigma:3];
-        [filter encodeToCommandBuffer:commandBuffer sourceTexture:self.texture destinationTexture:drawingTexture];
+        MPSImageGaussianBlur *filter = [[MPSImageGaussianBlur alloc] initWithDevice:self.mtkView.device sigma:1]; // 这里的sigma值可以修改，sigma值越高图像越模糊
+        [filter encodeToCommandBuffer:commandBuffer sourceTexture:self.texture destinationTexture:drawingTexture]; // 把摄像头返回图像数据的原始数据
         
-        [commandBuffer presentDrawable:view.currentDrawable];
+        [commandBuffer presentDrawable:view.currentDrawable]; // 展示数据
         [commandBuffer commit];
         
         self.texture = NULL;
@@ -128,6 +131,7 @@
     size_t height = CVPixelBufferGetHeight(pixelBuffer);
     
     CVMetalTextureRef tmpTexture = NULL;
+    // 如果MTLPixelFormatBGRA8Unorm和摄像头采集时设置的颜色格式不一致，则会出现图像异常的情况；
     CVReturn status = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, self.textureCache, pixelBuffer, NULL, MTLPixelFormatBGRA8Unorm, width, height, 0, &tmpTexture);
     if(status == kCVReturnSuccess)
     {
