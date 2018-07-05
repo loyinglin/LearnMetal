@@ -15,7 +15,7 @@
 @property (nonatomic, strong) MTKView *mtkView;
 
 // data
-@property (nonatomic, assign) vector_uint2 viewportSize;
+@property (nonatomic, assign) CGSize viewportSize;
 @property (nonatomic, strong) id<MTLRenderPipelineState> renderPipelineState;
 @property (nonatomic, strong) id<MTLComputePipelineState> computePipelineState;
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
@@ -42,7 +42,7 @@
     self.mtkView.device = MTLCreateSystemDefaultDevice(); // 获取默认的device
     self.view = self.mtkView;
     self.mtkView.delegate = self;
-    self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
+    self.viewportSize = CGSizeMake(self.mtkView.drawableSize.width, self.mtkView.drawableSize.height);
     
     [self customInit];
 }
@@ -76,15 +76,15 @@
 }
 
 - (void)setupVertex {
-    static const LYVertex quadVertices[] =
+    const LYVertex quadVertices[] =
     {   // 顶点坐标，分别是x、y、z、w；    纹理坐标，x、y；
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5, -0.5, 0.0, 1.0 },  { 0.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  0.5, -0.5 / self.viewportSize.height * self.viewportSize.width, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -0.5, -0.5 / self.viewportSize.height * self.viewportSize.width, 0.0, 1.0 },  { 0.f, 1.f } },
+        { { -0.5,  0.5 / self.viewportSize.height * self.viewportSize.width, 0.0, 1.0 },  { 0.f, 0.f } },
         
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
-        { {  0.5,  0.5, 0.0, 1.0 },  { 1.f, 0.f } },
+        { {  0.5, -0.5 / self.viewportSize.height * self.viewportSize.width, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -0.5,  0.5 / self.viewportSize.height * self.viewportSize.width, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  0.5,  0.5 / self.viewportSize.height * self.viewportSize.width, 0.0, 1.0 },  { 1.f, 0.f } },
     };
     self.vertices = [self.mtkView.device newBufferWithBytes:quadVertices
                                                      length:sizeof(quadVertices)
@@ -151,7 +151,7 @@
 #pragma mark - delegate
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
-    self.viewportSize = (vector_uint2){size.width, size.height};
+    self.viewportSize = CGSizeMake(size.width, size.height);
 }
 
 - (void)drawInMTKView:(MTKView *)view {
@@ -182,7 +182,7 @@
     {
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.5, 0.5, 1.0f); // 设置默认颜色
         id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; //编码绘制指令的Encoder
-        [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }]; // 设置显示区域
+        [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.width, self.viewportSize.height, -1.0, 1.0 }]; // 设置显示区域
         [renderEncoder setRenderPipelineState:self.renderPipelineState]; // 设置渲染管道，以保证顶点和片元两个shader会被调用
         
         [renderEncoder setVertexBuffer:self.vertices
