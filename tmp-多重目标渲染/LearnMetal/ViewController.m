@@ -27,7 +27,6 @@
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
 @property (nonatomic, strong) id<MTLTexture> sourceTexture;
 @property (nonatomic, strong) id<MTLTexture> destTexture;
-@property (nonatomic, strong) id<MTLTexture> metalTexture;
 @property (nonatomic, assign) CVMetalTextureCacheRef textureCache;
 @property (nonatomic, assign) CVPixelBufferRef renderPixelBuffer;
 @property (nonatomic, strong) MTLRenderPassDescriptor *renderPassDescriptor;
@@ -54,8 +53,7 @@
     self.mtkView.delegate = self;
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
     
-    
-    self.glView = [[LYOpenGLView alloc] initWithFrame:CGRectMake(CGRectGetMaxX(self.view.bounds) - 180, 0, 180, 180)];
+    self.glView = [[LYOpenGLView alloc] initWithFrame:CGRectMake(CGRectGetWidth(self.view.bounds) / 2, 0, CGRectGetWidth(self.view.bounds) / 2, CGRectGetHeight(self.view.bounds) / 2)];
     [self.glView setupGL];
     [self.view addSubview:self.glView];
     
@@ -80,7 +78,8 @@
     pipelineStateDescriptor.vertexFunction = vertexFunction;
     pipelineStateDescriptor.fragmentFunction = fragmentFunction;
 
-    pipelineStateDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+    pipelineStateDescriptor.colorAttachments[0].pixelFormat = self.mtkView.colorPixelFormat;
+    pipelineStateDescriptor.colorAttachments[1].pixelFormat = MTLPixelFormatBGRA8Unorm;
     
     NSError *error;
     // 创建图形渲染管道，耗性能操作不宜频繁调用
@@ -94,18 +93,22 @@
     self.renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0.5, 0.5, 1.0);
     self.renderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
     self.renderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+    
+    self.renderPassDescriptor.colorAttachments[1].clearColor = MTLClearColorMake(0, 0, 0, 0);
+    self.renderPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionClear;
+    self.renderPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
 }
 
 - (void)setupVertex {
-    static const LYVertex quadVertices[] =
+    const LYVertex quadVertices[] =
     {   // 顶点坐标，分别是x、y、z、w；    纹理坐标，x、y；
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5, -0.5, 0.0, 1.0 },  { 0.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  0.5, -0.5/self.viewportSize.y*self.viewportSize.x, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -0.5, -0.5/self.viewportSize.y*self.viewportSize.x, 0.0, 1.0 },  { 0.f, 1.f } },
+        { { -0.5,  0.5/self.viewportSize.y*self.viewportSize.x, 0.0, 1.0 },  { 0.f, 0.f } },
         
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
-        { {  0.5,  0.5, 0.0, 1.0 },  { 1.f, 0.f } },
+        { {  0.5, -0.5/self.viewportSize.y*self.viewportSize.x, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -0.5,  0.5/self.viewportSize.y*self.viewportSize.x, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  0.5,  0.5/self.viewportSize.y*self.viewportSize.x, 0.0, 1.0 },  { 1.f, 0.f } },
     };
     self.vertices = [self.mtkView.device newBufferWithBytes:quadVertices
                                                      length:sizeof(quadVertices)
@@ -123,11 +126,6 @@
     textureDescriptor.usage = MTLTextureUsageShaderRead; // 原图片只需要读取
     self.sourceTexture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor]; // 创建纹理
     
-    textureDescriptor.pixelFormat = MTLPixelFormatBGRA8Unorm; 
-    textureDescriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite | MTLTextureUsageRenderTarget;
-    self.metalTexture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor]; // 创建纹理
-    self.metalTexture.label = @"metalTexture";
-    
     MTLRegion region = {{ 0, 0, 0 }, {image.size.width, image.size.height, 1}}; // 纹理上传的范围
     Byte *imageBytes = [self loadImage:image];
     if (imageBytes) { // UIImage的数据需要转成二进制才能上传，且不用jpg、png的NSData
@@ -138,7 +136,6 @@
         free(imageBytes); // 需要释放资源
         imageBytes = NULL;
     }
-    
 }
 
 - (void)setupThreadGroup {
@@ -173,7 +170,7 @@
 
 
 - (void)setupRenderTarget {
-    CVMetalTextureCacheCreate(NULL, NULL, self.mtkView.device, NULL, &_textureCache);
+    CVMetalTextureCacheCreate(NULL, NULL, self.mtkView.device, NULL, &_textureCache); // 创建纹理缓存
     
     CFDictionaryRef empty; // empty value for attr value.
     CFMutableDictionaryRef attrs;
@@ -260,19 +257,18 @@
     self.viewportSize = (vector_uint2){size.width, size.height};
 }
 
-- (void)drawInMTKView:(MTKView *)view {
+- (void)drawInMTKView:(MTKView *)view {    
     // 每次渲染都要单独创建一个CommandBuffer
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     
     // MTLRenderPassDescriptor描述一系列attachments的值，类似GL的FrameBuffer；同时也用来创建MTLRenderCommandEncoder
     if(self.renderPassDescriptor)
     {
-        id<MTLTexture> renderTexture = self.destTexture;
+        self.renderPassDescriptor.colorAttachments[0].texture = self.mtkView.currentDrawable.texture;
+        self.renderPassDescriptor.colorAttachments[1].texture = self.destTexture;
         
-        
-        self.renderPassDescriptor.colorAttachments[0].texture = renderTexture;
         id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:self.renderPassDescriptor]; //编码绘制指令的Encoder
-        [renderEncoder setViewport:(MTLViewport){0.0, 0.0, renderTexture.width, renderTexture.height, -1.0, 1.0 }]; // 设置显示区域
+        [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }]; // 设置显示区域
         [renderEncoder setRenderPipelineState:self.renderPipelineState]; // 设置渲染管道，以保证顶点和片元两个shader会被调用
         
         [renderEncoder setVertexBuffer:self.vertices
@@ -295,24 +291,22 @@
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         if (kCVReturnSuccess == CVPixelBufferLockBaseAddress(self.renderPixelBuffer,
                                                              kCVPixelBufferLock_ReadOnly)) {
-            //        uint8_t* pixels=(uint8_t*)CVPixelBufferGetBaseAddress(self.renderPixelBuffer);
-            dispatch_async(dispatch_get_main_queue(), ^{
-                UIImage *image = [self lyGetImageFromPixelBuffer:self.renderPixelBuffer];
-                if (!self.imageView) {
-                    self.imageView = [[UIImageView alloc] initWithFrame:self.view.bounds];
+            if (!self.imageView) {
+                dispatch_sync(dispatch_get_main_queue(), ^{
+                    UIImage *image = [self lyGetImageFromPixelBuffer:self.renderPixelBuffer];
+                    self.imageView = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, CGRectGetWidth(self.view.bounds)/2, CGRectGetHeight(self.view.bounds)/2)];
                     self.imageView.image = image;
-                    [self.view insertSubview:self.imageView atIndex:0];
-                }
-                [self.glView displayPixelBuffer:self.renderPixelBuffer];
-            });
-            
-            
+                    [self.view addSubview:self.imageView];
+                    [self.glView displayPixelBuffer:self.renderPixelBuffer];
+                });
+            }
             CVPixelBufferUnlockBaseAddress(self.renderPixelBuffer, kCVPixelBufferLock_ReadOnly);
         }
     }];
     
     
     [commandBuffer commit]; // 提交；
+    
 }
 
 
