@@ -65,7 +65,7 @@ enum
 
 		CAEAGLLayer *eaglLayer = (CAEAGLLayer *)self.layer;
 
-		eaglLayer.opaque = TRUE;
+		eaglLayer.opaque = NO;
 		eaglLayer.drawableProperties = @{ kEAGLDrawablePropertyRetainedBacking :[NSNumber numberWithBool:NO],
 										  kEAGLDrawablePropertyColorFormat : kEAGLColorFormatRGBA8};
 
@@ -252,7 +252,7 @@ enum
 	glVertexAttribPointer(ATTRIB_TEXCOORD, 2, GL_FLOAT, 0, 0, quadTextureData);
 	glEnableVertexAttribArray(ATTRIB_TEXCOORD);
 	
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	glBindRenderbuffer(GL_RENDERBUFFER, _colorBufferHandle);
     

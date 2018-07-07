@@ -115,7 +115,7 @@
     MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
     pipelineStateDescriptor.vertexFunction = vertexFunction;
     pipelineStateDescriptor.fragmentFunction = fragmentFunction;
-    pipelineStateDescriptor.colorAttachments[0].pixelFormat = self.mtkView.colorPixelFormat;
+    pipelineStateDescriptor.colorAttachments[0].pixelFormat = self.mtkView.colorPixelFormat; // 设置颜色格式
     self.pipelineState = [self.mtkView.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
                                                                              error:NULL]; // 创建图形渲染管道，耗性能操作不宜频繁调用
     self.commandQueue = [self.mtkView.device newCommandQueue]; // CommandQueue是渲染指令队列，保证渲染指令有序地提交到GPU
@@ -139,16 +139,15 @@
 }
 
 - (void)setupTextureWithEncoder:(id<MTLRenderCommandEncoder>)encoder buffer:(CMSampleBufferRef)sampleBuffer {
-    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer); // 从CMSampleBuffer读取CVPixelBuffer，
     
     id<MTLTexture> textureY = nil;
     id<MTLTexture> textureUV = nil;
-    
     // textureY
     {
         size_t width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0);
         size_t height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0);
-        MTLPixelFormat pixelFormat = MTLPixelFormatR8Unorm;
+        MTLPixelFormat pixelFormat = MTLPixelFormatR8Unorm; // 这里的颜色
         
         CVMetalTextureRef texture = NULL;
         CVReturn status = CVMetalTextureCacheCreateTextureFromImage(NULL, self.textureCache, pixelBuffer, NULL, pixelFormat, width, height, 0, &texture);
