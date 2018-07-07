@@ -49,7 +49,7 @@
     NSURL *url = [[NSBundle mainBundle] URLForResource:@"test" withExtension:@"mov"];
     self.reader = [[LYAssetReader alloc] initWithUrl:url];
 
-    CVMetalTextureCacheCreate(NULL, NULL, self.mtkView.device, NULL, &_textureCache);
+    CVMetalTextureCacheCreate(NULL, NULL, self.mtkView.device, NULL, &_textureCache); // TextureCache的创建
     
     [self customInit];
 }
@@ -88,16 +88,17 @@
  (simd_float3){1.793, -0.533,   0.0},
  };
  */
-- (void)setupMatrix {
+- (void)setupMatrix { // 设置好转换的矩阵
     matrix_float3x3 kColorConversion601FullRangeMatrix = (matrix_float3x3){
         (simd_float3){1.0,    1.0,    1.0},
         (simd_float3){0.0,    -0.343, 1.765},
         (simd_float3){1.4,    -0.711, 0.0},
     };
     
-    vector_float3 kColorConversion601FullRangeOffset = (vector_float3){ -(16.0/255.0), -0.5, -0.5};
+    vector_float3 kColorConversion601FullRangeOffset = (vector_float3){ -(16.0/255.0), -0.5, -0.5}; // 这个是偏移
     
     LYConvertMatrix matrix;
+    // 设置参数
     matrix.matrix = kColorConversion601FullRangeMatrix;
     matrix.offset = kColorConversion601FullRangeOffset;
     
@@ -143,32 +144,32 @@
     
     id<MTLTexture> textureY = nil;
     id<MTLTexture> textureUV = nil;
-    // textureY
+    // textureY 设置
     {
         size_t width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0);
         size_t height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0);
-        MTLPixelFormat pixelFormat = MTLPixelFormatR8Unorm; // 这里的颜色
-        
-        CVMetalTextureRef texture = NULL;
+        MTLPixelFormat pixelFormat = MTLPixelFormatR8Unorm; // 这里的颜色格式不是RGBA
+
+        CVMetalTextureRef texture = NULL; // CoreVideo的Metal纹理
         CVReturn status = CVMetalTextureCacheCreateTextureFromImage(NULL, self.textureCache, pixelBuffer, NULL, pixelFormat, width, height, 0, &texture);
         if(status == kCVReturnSuccess)
         {
-            textureY = CVMetalTextureGetTexture(texture);
+            textureY = CVMetalTextureGetTexture(texture); // 转成Metal用的纹理
             CFRelease(texture);
         }
     }
     
-    // textureUV
+    // textureUV 设置
     {
         size_t width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 1);
         size_t height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 1);
-        MTLPixelFormat pixelFormat = MTLPixelFormatRG8Unorm;
+        MTLPixelFormat pixelFormat = MTLPixelFormatRG8Unorm; // 2-8bit的格式
         
-        CVMetalTextureRef texture = NULL;
+        CVMetalTextureRef texture = NULL; // CoreVideo的Metal纹理
         CVReturn status = CVMetalTextureCacheCreateTextureFromImage(NULL, self.textureCache, pixelBuffer, NULL, pixelFormat, width, height, 1, &texture);
         if(status == kCVReturnSuccess)
         {
-            textureUV = CVMetalTextureGetTexture(texture);
+            textureUV = CVMetalTextureGetTexture(texture); // 转成Metal用的纹理
             CFRelease(texture);
         }
     }
@@ -180,7 +181,7 @@
         [encoder setFragmentTexture:textureUV
                             atIndex:LYFragmentTextureIndexTextureUV]; // 设置纹理
     }
-    CFRelease(sampleBuffer);
+    CFRelease(sampleBuffer); // 记得释放
 }
 
 
@@ -196,7 +197,7 @@
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
     // MTLRenderPassDescriptor描述一系列attachments的值，类似GL的FrameBuffer；同时也用来创建MTLRenderCommandEncoder
-    CMSampleBufferRef sampleBuffer = [self.reader readBuffer];
+    CMSampleBufferRef sampleBuffer = [self.reader readBuffer]; // 从LYAssetReader中读取图像数据
     if(renderPassDescriptor && sampleBuffer)
     {
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.5, 0.5, 1.0f); // 设置默认颜色
