@@ -59,7 +59,7 @@
     id<MTLLibrary> defaultLibrary = [self.mtkView.device newDefaultLibrary]; // .metal
     id<MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"]; // 顶点shader，vertexShader是函数名
     id<MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"samplingShader"]; // 片元shader，samplingShader是函数名
-    id<MTLFunction> kernelFunction = [defaultLibrary newFunctionWithName:@"sobelKernel"];
+    id<MTLFunction> kernelFunction = [defaultLibrary newFunctionWithName:@"grayKernel"];
     
     MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
     pipelineStateDescriptor.vertexFunction = vertexFunction;
