@@ -11,7 +11,6 @@
 		FD68897720DB40C7002F8137 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = FD68897620DB40C7002F8137 /* ViewController.m */; };
 		FD68897A20DB40C7002F8137 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = FD68897820DB40C7002F8137 /* Main.storyboard */; };
 		FD68897C20DB40CA002F8137 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FD68897B20DB40CA002F8137 /* Assets.xcassets */; };
-		FD68897F20DB40CA002F8137 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = FD68897D20DB40CA002F8137 /* LaunchScreen.storyboard */; };
 		FD68898220DB40CA002F8137 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = FD68898120DB40CA002F8137 /* main.m */; };
 		FD68898D20DB432A002F8137 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD68898C20DB4329002F8137 /* MetalKit.framework */; };
 		FD68899220DB4832002F8137 /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = FD68899120DB4832002F8137 /* shaders.metal */; };
@@ -26,7 +25,6 @@
 		FD68897620DB40C7002F8137 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		FD68897920DB40C7002F8137 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		FD68897B20DB40CA002F8137 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		FD68897E20DB40CA002F8137 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		FD68898020DB40CA002F8137 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FD68898120DB40CA002F8137 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		FD68898C20DB4329002F8137 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
@@ -92,7 +90,6 @@
 			children = (
 				FD68897820DB40C7002F8137 /* Main.storyboard */,
 				FD68897B20DB40CA002F8137 /* Assets.xcassets */,
-				FD68897D20DB40CA002F8137 /* LaunchScreen.storyboard */,
 				FD68898020DB40CA002F8137 /* Info.plist */,
 				FD68898120DB40CA002F8137 /* main.m */,
 			);
@@ -166,7 +163,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD918ABB20DB4FBF00E4ED14 /* abc.png in Resources */,
-				FD68897F20DB40CA002F8137 /* LaunchScreen.storyboard in Resources */,
 				FD68897C20DB40CA002F8137 /* Assets.xcassets in Resources */,
 				FD68897A20DB40C7002F8137 /* Main.storyboard in Resources */,
 			);
@@ -195,14 +191,6 @@
 				FD68897920DB40C7002F8137 /* Base */,
 			);
 			name = Main.storyboard;
-			sourceTree = "<group>";
-		};
-		FD68897D20DB40CA002F8137 /* LaunchScreen.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				FD68897E20DB40CA002F8137 /* Base */,
-			);
-			name = LaunchScreen.storyboard;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -325,6 +313,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = A478ENRUX2;
 				INFOPLIST_FILE = "$(SRCROOT)/LearnMetal/help/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 9;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -342,6 +331,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = A478ENRUX2;
 				INFOPLIST_FILE = "$(SRCROOT)/LearnMetal/help/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 9;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

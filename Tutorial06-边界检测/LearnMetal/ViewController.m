@@ -6,10 +6,11 @@
 //  Copyright © 2018年 loyinglin. All rights reserved.
 //
 @import MetalKit;
+@import AVFoundation;
 #import "LYShaderTypes.h"
 #import "ViewController.h"
 
-@interface ViewController () <MTKViewDelegate>
+@interface ViewController () <MTKViewDelegate, AVCaptureVideoDataOutputSampleBufferDelegate>
 
 // view
 @property (nonatomic, strong) MTKView *mtkView;
@@ -21,8 +22,16 @@
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
 @property (nonatomic, strong) id<MTLTexture> sourceTexture;
 @property (nonatomic, strong) id<MTLTexture> destTexture;
-;
-;
+
+
+@property (nonatomic, strong) AVCaptureSession *mCaptureSession; //负责输入和输出设备之间的数据传递
+@property (nonatomic, strong) AVCaptureDeviceInput *mCaptureDeviceInput;//负责从AVCaptureDevice获得输入数据
+@property (nonatomic, strong) AVCaptureVideoDataOutput *mCaptureDeviceOutput; //output
+@property (nonatomic, strong) dispatch_queue_t mProcessQueue;
+@property (nonatomic, assign) CVMetalTextureCacheRef textureCache; //output
+
+
+
 @property (nonatomic, strong) id<MTLBuffer> vertices;
 @property (nonatomic, assign) NSUInteger numVertices;
 @property (nonatomic, assign) MTLSize groupSize;
@@ -44,10 +53,13 @@
     self.mtkView.delegate = self;
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
     
+    CVMetalTextureCacheCreate(NULL, NULL, self.mtkView.device, NULL, &_textureCache);
+    
     [self customInit];
 }
 
 - (void)customInit {
+    [self setupCaptureSession];
     [self setupPipeline];
     [self setupVertex];
     [self setupTexture];
@@ -76,15 +88,15 @@
 }
 
 - (void)setupVertex {
-    static const LYVertex quadVertices[] =
+    const LYVertex quadVertices[] =
     {   // 顶点坐标，分别是x、y、z、w；    纹理坐标，x、y；
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5, -0.5, 0.0, 1.0 },  { 0.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  1.0, -1.0, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -1.0, -1.0, 0.0, 1.0 },  { 0.f, 1.f } },
+        { { -1.0,  1.0, 0.0, 1.0 },  { 0.f, 0.f } },
         
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
-        { {  0.5,  0.5, 0.0, 1.0 },  { 1.f, 0.f } },
+        { {  1.0, -1.0, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -1.0,  1.0, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  1.0,  1.0, 0.0, 1.0 },  { 1.f, 0.f } },
     };
     self.vertices = [self.mtkView.device newBufferWithBytes:quadVertices
                                                      length:sizeof(quadVertices)
@@ -93,26 +105,11 @@
 }
 
 - (void)setupTexture {
-    UIImage *image = [UIImage imageNamed:@"abc"];
     // 纹理描述符
     MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
-    textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm; // 图片的格式要和数据一致
-    textureDescriptor.width = image.size.width;
-    textureDescriptor.height = image.size.height;
-    textureDescriptor.usage = MTLTextureUsageShaderRead; // 原图片只需要读取
-    self.sourceTexture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor]; // 创建纹理
-    
-    MTLRegion region = {{ 0, 0, 0 }, {image.size.width, image.size.height, 1}}; // 纹理上传的范围
-    Byte *imageBytes = [self loadImage:image];
-    if (imageBytes) { // UIImage的数据需要转成二进制才能上传，且不用jpg、png的NSData
-        [self.sourceTexture replaceRegion:region
-                        mipmapLevel:0
-                          withBytes:imageBytes
-                        bytesPerRow:4 * image.size.width];
-        free(imageBytes); // 需要释放资源
-        imageBytes = NULL;
-    }
-    
+    textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm; // 格式要和数据一致
+    textureDescriptor.width = self.viewportSize.x;
+    textureDescriptor.height = self.viewportSize.y;
     textureDescriptor.usage = MTLTextureUsageShaderWrite | MTLTextureUsageShaderRead; // 目标纹理在compute管道需要写，在render管道需要读
     self.destTexture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor];
 }
@@ -121,32 +118,40 @@
     self.groupSize = MTLSizeMake(16, 16, 1); // 太大某些GPU不支持，太小效率低；
     
     //保证每个像素都有处理到
-    _groupCount.width  = (self.sourceTexture.width  + self.groupSize.width -  1) / self.groupSize.width;
-    _groupCount.height = (self.sourceTexture.height + self.groupSize.height - 1) / self.groupSize.height;
+    _groupCount.width  = (self.viewportSize.x  + self.groupSize.width -  1) / self.groupSize.width;
+    _groupCount.height = (self.viewportSize.y + self.groupSize.height - 1) / self.groupSize.height;
     _groupCount.depth = 1; // 我们是2D纹理，深度设为1
 }
 
-- (Byte *)loadImage:(UIImage *)image {
-    // 1获取图片的CGImageRef
-    CGImageRef spriteImage = image.CGImage;
-    
-    // 2 读取图片的大小
-    size_t width = CGImageGetWidth(spriteImage);
-    size_t height = CGImageGetHeight(spriteImage);
-    
-    Byte * spriteData = (Byte *) calloc(width * height * 4, sizeof(Byte)); //rgba共4个byte
-    
-    CGContextRef spriteContext = CGBitmapContextCreate(spriteData, width, height, 8, width*4,
-                                                       CGImageGetColorSpace(spriteImage), kCGImageAlphaPremultipliedLast);
-    
-    // 3在CGContextRef上绘图
-    CGContextDrawImage(spriteContext, CGRectMake(0, 0, width, height), spriteImage);
-    
-    CGContextRelease(spriteContext);
-    
-    return spriteData;
-}
 
+- (void)setupCaptureSession {
+    self.mCaptureSession = [[AVCaptureSession alloc] init];
+    self.mCaptureSession.sessionPreset = AVCaptureSessionPreset1920x1080;
+    self.viewportSize = (vector_uint2){1920, 1080};
+    self.mProcessQueue = dispatch_queue_create("mProcessQueue", DISPATCH_QUEUE_SERIAL); // 串行队列
+    AVCaptureDevice *inputCamera = nil;
+    NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+    for (AVCaptureDevice *device in devices) {
+        if ([device position] == AVCaptureDevicePositionBack) {
+            inputCamera = device;
+        }
+    }
+    self.mCaptureDeviceInput = [[AVCaptureDeviceInput alloc] initWithDevice:inputCamera error:nil];
+    if ([self.mCaptureSession canAddInput:self.mCaptureDeviceInput]) {
+        [self.mCaptureSession addInput:self.mCaptureDeviceInput];
+    }
+    self.mCaptureDeviceOutput = [[AVCaptureVideoDataOutput alloc] init];
+    [self.mCaptureDeviceOutput setAlwaysDiscardsLateVideoFrames:NO];
+    // 这里设置格式为BGRA，而不用YUV的颜色空间，避免使用Shader转换
+    [self.mCaptureDeviceOutput setVideoSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
+    [self.mCaptureDeviceOutput setSampleBufferDelegate:self queue:self.mProcessQueue];
+    if ([self.mCaptureSession canAddOutput:self.mCaptureDeviceOutput]) {
+        [self.mCaptureSession addOutput:self.mCaptureDeviceOutput];
+    }
+    AVCaptureConnection *connection = [self.mCaptureDeviceOutput connectionWithMediaType:AVMediaTypeVideo];
+    [connection setVideoOrientation:AVCaptureVideoOrientationPortrait]; // 设置方向
+    [self.mCaptureSession startRunning];
+}
 
 #pragma mark - delegate
 
@@ -155,6 +160,9 @@
 }
 
 - (void)drawInMTKView:(MTKView *)view {
+    if (!self.sourceTexture) {
+        return;
+    }
     // 每次渲染都要单独创建一个CommandBuffer
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     
@@ -166,6 +174,7 @@
         // 输入纹理
         [computeEncoder setTexture:self.sourceTexture
                            atIndex:LYFragmentTextureIndexTextureSource];
+        self.sourceTexture = nil;
         // 输出纹理
         [computeEncoder setTexture:self.destTexture
                            atIndex:LYFragmentTextureIndexTextureDest];
@@ -203,6 +212,26 @@
     
     [commandBuffer commit]; // 提交；
 }
+
+
+#pragma mark - AVCaptureVideoDataOutputSampleBufferDelegate
+- (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
+    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    
+    size_t width = CVPixelBufferGetWidth(pixelBuffer);
+    size_t height = CVPixelBufferGetHeight(pixelBuffer);
+    
+    CVMetalTextureRef tmpTexture = NULL;
+    // 如果MTLPixelFormatBGRA8Unorm和摄像头采集时设置的颜色格式不一致，则会出现图像异常的情况；
+    CVReturn status = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, self.textureCache, pixelBuffer, NULL, MTLPixelFormatBGRA8Unorm, width, height, 0, &tmpTexture);
+    if(status == kCVReturnSuccess)
+    {
+        self.mtkView.drawableSize = CGSizeMake(width, height);
+        self.sourceTexture = CVMetalTextureGetTexture(tmpTexture);
+        CFRelease(tmpTexture);
+    }
+}
+
 
 
 - (void)didReceiveMemoryWarning {

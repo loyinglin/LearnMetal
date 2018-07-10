@@ -48,21 +48,30 @@ sobelKernel(texture2d<half, access::read>  sourceTexture  [[texture(LYFragmentTe
                 texture2d<half, access::write> destTexture [[texture(LYFragmentTextureIndexTextureDest)]],
                 uint2                          grid         [[thread_position_in_grid]])
 {
-    half4 topLeft = sourceTexture.read(uint2(grid.x - sobelStep, grid.y - sobelStep));
-    half4 top = sourceTexture.read(uint2(grid.x, grid.y - sobelStep));
-    half4 topRight = sourceTexture.read(uint2(grid.x + sobelStep, grid.y - sobelStep));
-    half4 centerLeft = sourceTexture.read(uint2(grid.x - sobelStep, grid.y));
-    half4 centerRight = sourceTexture.read(uint2(grid.x + sobelStep, grid.y));
-    half4 bottomLeft = sourceTexture.read(uint2(grid.x - sobelStep, grid.y + sobelStep));
-    half4 bottom = sourceTexture.read(uint2(grid.x, grid.y + sobelStep));
-    half4 bottomRight = sourceTexture.read(uint2(grid.x + sobelStep, grid.y + sobelStep));
+    /*
+     
+     行数     9个像素          位置
+     上     | * * * |      | 左 中 右 |
+     中     | * * * |      | 左 中 右 |
+     下     | * * * |      | 左 中 右 |
+     
+     */
+    half4 topLeft = sourceTexture.read(uint2(grid.x - sobelStep, grid.y - sobelStep)); // 左上
+    half4 top = sourceTexture.read(uint2(grid.x, grid.y - sobelStep)); // 上
+    half4 topRight = sourceTexture.read(uint2(grid.x + sobelStep, grid.y - sobelStep)); // 右上
+    half4 centerLeft = sourceTexture.read(uint2(grid.x - sobelStep, grid.y)); // 中左
+    half4 centerRight = sourceTexture.read(uint2(grid.x + sobelStep, grid.y)); // 中右
+    half4 bottomLeft = sourceTexture.read(uint2(grid.x - sobelStep, grid.y + sobelStep)); // 下左
+    half4 bottom = sourceTexture.read(uint2(grid.x, grid.y + sobelStep)); // 下中
+    half4 bottomRight = sourceTexture.read(uint2(grid.x + sobelStep, grid.y + sobelStep)); // 下右
     
-    half4 h = -topLeft - 2.0 * top - topRight + bottomLeft + 2.0 * bottom + bottomRight;
-    half4 v = -bottom - 2.0 * centerLeft - topLeft + bottomRight + 2.0 * centerRight + topRight;
+    half4 h = -topLeft - 2.0 * top - topRight + bottomLeft + 2.0 * bottom + bottomRight; // 横方向差别
+    half4 v = -bottom - 2.0 * centerLeft - topLeft + bottomRight + 2.0 * centerRight + topRight; // 竖方向差别
     
     half  grayH  = dot(h.rgb, kRec709Luma); // 转换成亮度
     half  grayV  = dot(v.rgb, kRec709Luma); // 转换成亮度
     
+    // sqrt(h^2 + v^2)，相当于求点到(h, v)的距离，所以可以用length
     half color = length(half2(grayH, grayV));
     
     destTexture.write(half4(color, color, color, 1.0), grid); // 写回对应纹理
