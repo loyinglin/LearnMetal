@@ -122,6 +122,7 @@
     self.commandQueue = [self.mtkView.device newCommandQueue]; // CommandQueue是渲染指令队列，保证渲染指令有序地提交到GPU
 }
 
+// 设置顶点
 - (void)setupVertex {
     static const LYVertex quadVertices[] =
     {   // 顶点坐标，分别是x、y、z、w；    纹理坐标，x、y；
@@ -139,6 +140,7 @@
     self.numVertices = sizeof(quadVertices) / sizeof(LYVertex); // 顶点个数
 }
 
+// 设置纹理
 - (void)setupTextureWithEncoder:(id<MTLRenderCommandEncoder>)encoder buffer:(CMSampleBufferRef)sampleBuffer {
     CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer); // 从CMSampleBuffer读取CVPixelBuffer，
     

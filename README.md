@@ -14,6 +14,7 @@ Metal 入门教程
  * Metal渲染到纹理；（滤镜链的基础）
  * 多重colorAttachments渲染；
  * Metal实现滤镜链；
- ios 绿幕功能实现
+ * 绿幕功能实现
+ * MPSImageHistogram
 
 如果你有想法和建议，欢迎加群263556662交流。
