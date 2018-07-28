@@ -15,6 +15,7 @@
 		FD68898D20DB432A002F8137 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD68898C20DB4329002F8137 /* MetalKit.framework */; };
 		FD68899220DB4832002F8137 /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = FD68899120DB4832002F8137 /* shaders.metal */; };
 		FD918ABB20DB4FBF00E4ED14 /* abc.png in Resources */ = {isa = PBXBuildFile; fileRef = FD918ABA20DB4FBF00E4ED14 /* abc.png */; };
+		FDF82E83210B4930003EDBD9 /* readme.md in Resources */ = {isa = PBXBuildFile; fileRef = FDF82E82210B4930003EDBD9 /* readme.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +32,7 @@
 		FD68899120DB4832002F8137 /* shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
 		FD68899420DB4B49002F8137 /* LYShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LYShaderTypes.h; sourceTree = "<group>"; };
 		FD918ABA20DB4FBF00E4ED14 /* abc.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = abc.png; sourceTree = "<group>"; };
+		FDF82E82210B4930003EDBD9 /* readme.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = readme.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +50,7 @@
 		FD68896620DB40C7002F8137 = {
 			isa = PBXGroup;
 			children = (
+				FDF82E82210B4930003EDBD9 /* readme.md */,
 				FD68897120DB40C7002F8137 /* LearnMetal */,
 				FD68897020DB40C7002F8137 /* Products */,
 				FD68898B20DB4329002F8137 /* Frameworks */,
@@ -164,6 +167,7 @@
 			files = (
 				FD918ABB20DB4FBF00E4ED14 /* abc.png in Resources */,
 				FD68897C20DB40CA002F8137 /* Assets.xcassets in Resources */,
+				FDF82E83210B4930003EDBD9 /* readme.md in Resources */,
 				FD68897A20DB40C7002F8137 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
