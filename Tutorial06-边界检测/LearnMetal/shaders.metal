@@ -40,7 +40,7 @@ samplingShader(RasterizerData input [[stage_in]], // stage_in表示这个数据�
 }
 
 
-constant half sobelStep = 1 / 180.0; // 因为图片是180
+constant int sobelStep = 2;
 constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722); // 把rgba转成亮度值
 
 kernel void
