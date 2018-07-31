@@ -13,16 +13,16 @@
 
 typedef struct
 {
-    vector_float4 position;
-    vector_float3 color;
-    vector_float2 textureCoordinate;
+    vector_float4 position; // 顶点
+    vector_float3 color; // 颜色
+    vector_float2 textureCoordinate; // 纹理
 } LYVertex;
 
 
 typedef struct
 {
-    matrix_float4x4 projectionMatrix;
-    matrix_float4x4 modelViewMatrix;
+    matrix_float4x4 projectionMatrix; // 投影变换
+    matrix_float4x4 modelViewMatrix; // 模型变换
 } LYMatrix;
 
 

@@ -15,12 +15,10 @@
 
 // view
 @property (nonatomic, strong) MTKView *mtkView;
-@property (nonatomic, strong) IBOutlet UISwitch *rotationX;
-@property (nonatomic, strong) IBOutlet UISwitch *rotationY;
-@property (nonatomic, strong) IBOutlet UISwitch *rotationZ;
+@property (nonatomic, strong) IBOutlet UISwitch *rotationEyePosition;
+@property (nonatomic, strong) IBOutlet UISwitch *rotationEyeLookat;
 
 @property (nonatomic, strong) IBOutlet UISlider *slider;
-
 
 @property (assign, nonatomic) GLKVector3 eyePosition;
 @property (assign, nonatomic) GLKVector3 lookAtPosition;
@@ -46,17 +44,14 @@
     
     self.mtkView = [[MTKView alloc] initWithFrame:self.view.bounds];
     self.mtkView.device = MTLCreateSystemDefaultDevice();
-    self.mtkView.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
     [self.view insertSubview:self.mtkView atIndex:0];
     self.mtkView.delegate = self;
     self.viewportSize = (vector_uint2){self.mtkView.drawableSize.width, self.mtkView.drawableSize.height};
     
-    
-    // 观察参数
+    // 观察参数的初始化
     self.eyePosition = GLKVector3Make(0.0, 0.0, 0.0);
     self.lookAtPosition = GLKVector3Make(0.0, 0.0, 0.0);
     self.upVector = GLKVector3Make(0.0, 1.0, 0.0);
-    
     
     [self customInit];
 }
@@ -76,17 +71,8 @@
     pipelineStateDescriptor.vertexFunction = vertexFunction;
     pipelineStateDescriptor.fragmentFunction = fragmentFunction;
     pipelineStateDescriptor.colorAttachments[0].pixelFormat = self.mtkView.colorPixelFormat;
-    pipelineStateDescriptor.depthAttachmentPixelFormat =  self.mtkView.depthStencilPixelFormat;
-    pipelineStateDescriptor.stencilAttachmentPixelFormat =  self.mtkView.depthStencilPixelFormat;
     self.pipelineState = [self.mtkView.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
                                                                          error:NULL];
-    
-    
-    MTLDepthStencilDescriptor *depthStencilDescriptor = [MTLDepthStencilDescriptor new];
-    depthStencilDescriptor.depthCompareFunction = MTLCompareFunctionLess;
-    depthStencilDescriptor.depthWriteEnabled = YES;
-    self.depthStencilState = [self.mtkView.device newDepthStencilStateWithDescriptor:depthStencilDescriptor];
-    
     self.commandQueue = [self.mtkView.device newCommandQueue];
 }
 
@@ -120,9 +106,9 @@
         {{-6.0f, -6.0f, 6.0f, 1.0f},     {0.0f, 0.0f, 1.0f},       {1.0f, 1.0f/6}},//左下 2
         {{-6.0f, 6.0f, -6.0f, 1.0f},     {1.0f, 0.0f, 0.0f},       {0.0f, 2.0f/6}},//左上 4
         {{-6.0f, -6.0f, -6.0f, 1.0f},    {0.0f, 0.0f, 1.0f},       {1.0f, 2.0f/6}},//左下 6
-//
-//
-//        // 右面
+
+
+        // 右面
         {{6.0f, 6.0f, 6.0f, 1.0f},       {0.0f, 1.0f, 0.0f},       {1.0f, 0.0f/6}},//右上 1
         {{6.0f, -6.0f, 6.0f, 1.0f},      {1.0f, 1.0f, 1.0f},       {0.0f, 0.0f/6}},//右下 3
         {{6.0f, 6.0f, -6.0f, 1.0f},      {0.0f, 1.0f, 0.0f},       {1.0f, 1.0f/6}},//右上 5
@@ -180,22 +166,27 @@
         return ;
     }
     
-    MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
-    textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm;
-    textureDescriptor.width = image.size.width;
-    textureDescriptor.height = image.size.height;
+    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor textureCubeDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm size:image.size.width mipmapped:NO];
     self.texture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor];
     
-    MTLRegion region = {{ 0, 0, 0 }, {image.size.width, image.size.height, 1}};
     Byte *imageBytes = [self loadImage:image];
+    NSInteger pixels = image.size.width * image.size.width;
     if (imageBytes) {
-        [self.texture replaceRegion:region
-                    mipmapLevel:0
-                      withBytes:imageBytes
-                    bytesPerRow:4 * image.size.width];
+        for (int i = 0; i < 6; i++)
+        {
+            [self.texture replaceRegion:MTLRegionMake2D(0, 0, image.size.width, image.size.width)
+                            mipmapLevel:0
+                                  slice:i
+                              withBytes:imageBytes + (i * pixels * 4)
+                            bytesPerRow:4 * (NSInteger)image.size.width
+                          bytesPerImage:pixels * 4];
+        }
+        
         free(imageBytes);
         imageBytes = NULL;
     }
+    
+    
 }
 
 - (Byte *)loadImage:(UIImage *)image {
@@ -239,17 +230,17 @@
 - (void)setupMatrixWithEncoder:(id<MTLRenderCommandEncoder>)renderEncoder {
     
     static float angle = 0, angleLook = 0;
-    if (self.rotationX.on) {
+    if (self.rotationEyePosition.on) {
         angle += self.slider.value;
     }
-    if (self.rotationY.on) {
+    if (self.rotationEyeLookat.on) {
         angleLook += self.slider.value;
     }
     
     // 调整眼睛的位置
     self.eyePosition = GLKVector3Make(2.0f * sinf(angle),
                                       2.0f * cosf(angle),
-                                      -2.0f);
+                                      0.0f);
     
     // 调整观察的位置
     self.lookAtPosition = GLKVector3Make(2.0f * sinf(angleLook),
@@ -259,7 +250,7 @@
     
     CGSize size = self.view.bounds.size;
     float aspect = fabs(size.width / size.height);
-    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(85.0f), aspect, 0.1f, 20.f);
+    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(85.0f), aspect, 0.1f, 20.f); // 投影变换矩阵
     GLKMatrix4 modelViewMatrix = GLKMatrix4MakeLookAt(
                                                       self.eyePosition.x,
                                                       self.eyePosition.y,
@@ -269,13 +260,13 @@
                                                       self.lookAtPosition.z,
                                                       self.upVector.x,
                                                       self.upVector.y,
-                                                      self.upVector.z);
+                                                      self.upVector.z); // 模型变换矩阵
     
-    LYMatrix matrix = {[self getMetalMatrixFromGLKMatrix:projectionMatrix], [self getMetalMatrixFromGLKMatrix:modelViewMatrix]};
+    LYMatrix matrix = {[self getMetalMatrixFromGLKMatrix:projectionMatrix], [self getMetalMatrixFromGLKMatrix:modelViewMatrix]}; // 转成Metal能接受的格式
     
     [renderEncoder setVertexBytes:&matrix
                            length:sizeof(matrix)
-                          atIndex:LYVertexInputIndexMatrix];
+                          atIndex:LYVertexInputIndexMatrix]; // 设置buffer
 }
 
 
@@ -289,8 +280,6 @@
     
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
-    renderPassDescriptor.depthAttachment.texture = self.mtkView.depthStencilTexture;
-    renderPassDescriptor.stencilAttachment.texture = self.mtkView.depthStencilTexture;
     
     if(renderPassDescriptor != nil)
     {
@@ -301,9 +290,6 @@
 
         [renderEncoder setViewport:(MTLViewport){0.0, 0.0, self.viewportSize.x, self.viewportSize.y, -1.0, 1.0 }];
         [renderEncoder setRenderPipelineState:self.pipelineState];
-//        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
-//        [renderEncoder setCullMode:MTLCullModeBack];
-        [renderEncoder setDepthStencilState:self.depthStencilState];
         
         [self setupMatrixWithEncoder:renderEncoder];
         

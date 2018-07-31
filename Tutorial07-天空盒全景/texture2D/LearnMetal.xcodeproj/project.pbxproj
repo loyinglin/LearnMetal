@@ -108,7 +108,7 @@
 				FD918ABA20DB4FBF00E4ED14 /* abc.png */,
 			);
 			name = CommonResources;
-			path = ../../CommonResources;
+			path = ../../../CommonResources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

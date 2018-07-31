@@ -274,18 +274,17 @@
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         if (kCVReturnSuccess == CVPixelBufferLockBaseAddress(self.renderPixelBuffer,
                                                              kCVPixelBufferLock_ReadOnly)) {
-            //        uint8_t* pixels=(uint8_t*)CVPixelBufferGetBaseAddress(self.renderPixelBuffer);
             dispatch_async(dispatch_get_main_queue(), ^{
                 UIImage *image = [self lyGetImageFromPixelBuffer:self.renderPixelBuffer];
                 if (!self.imageView) {
                     self.imageView = [[UIImageView alloc] initWithImage:image];
                     [self.view addSubview:self.imageView];
                 }
+                
+                [self.glView displayPixelBuffer:self.renderPixelBuffer];
+                
+                CVPixelBufferUnlockBaseAddress(self.renderPixelBuffer, kCVPixelBufferLock_ReadOnly);
             });
-            
-            [self.glView displayPixelBuffer:self.renderPixelBuffer];
-            
-            CVPixelBufferUnlockBaseAddress(self.renderPixelBuffer, kCVPixelBufferLock_ReadOnly);
         }
     }];
     
