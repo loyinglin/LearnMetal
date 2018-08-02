@@ -152,12 +152,13 @@
     };
     self.vertices = [self.mtkView.device newBufferWithBytes:quadVertices
                                                  length:sizeof(quadVertices)
-                                                options:MTLResourceStorageModeShared];
+                                                options:MTLResourceStorageModeShared]; // 顶点数据
     
     
     self.verticesCount = sizeof(quadVertices) / sizeof(LYVertex);
 }
 
+// 加载整张图的纹理
 - (void)setupTexture {
     UIImage *image = [UIImage imageNamed:@"image"];
     if(!image)
