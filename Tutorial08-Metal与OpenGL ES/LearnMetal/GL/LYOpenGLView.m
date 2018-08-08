@@ -65,7 +65,7 @@ enum
 
 		CAEAGLLayer *eaglLayer = (CAEAGLLayer *)self.layer;
 
-		eaglLayer.opaque = TRUE;
+		eaglLayer.opaque = YES;
 		eaglLayer.drawableProperties = @{ kEAGLDrawablePropertyRetainedBacking :[NSNumber numberWithBool:NO],
 										  kEAGLDrawablePropertyColorFormat : kEAGLColorFormatRGBA8};
 
