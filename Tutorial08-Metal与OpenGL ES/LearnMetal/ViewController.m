@@ -91,15 +91,15 @@
 }
 
 - (void)setupVertex {
-    static const LYVertex quadVertices[] =
+    const LYVertex quadVertices[] =
     {   // 顶点坐标，分别是x、y、z、w；    纹理坐标，x、y；
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5, -0.5, 0.0, 1.0 },  { 0.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  0.5, -0.5 / self.viewportSize.y * self.viewportSize.x, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -0.5, -0.5 / self.viewportSize.y * self.viewportSize.x, 0.0, 1.0 },  { 0.f, 1.f } },
+        { { -0.5,  0.5 / self.viewportSize.y * self.viewportSize.x, 0.0, 1.0 },  { 0.f, 0.f } },
         
-        { {  0.5, -0.5, 0.0, 1.0 },  { 1.f, 1.f } },
-        { { -0.5,  0.5, 0.0, 1.0 },  { 0.f, 0.f } },
-        { {  0.5,  0.5, 0.0, 1.0 },  { 1.f, 0.f } },
+        { {  0.5, -0.5 / self.viewportSize.y * self.viewportSize.x, 0.0, 1.0 },  { 1.f, 1.f } },
+        { { -0.5,  0.5 / self.viewportSize.y * self.viewportSize.x, 0.0, 1.0 },  { 0.f, 0.f } },
+        { {  0.5,  0.5 / self.viewportSize.y * self.viewportSize.x, 0.0, 1.0 },  { 1.f, 0.f } },
     };
     self.vertices = [self.mtkView.device newBufferWithBytes:quadVertices
                                                      length:sizeof(quadVertices)
@@ -121,9 +121,9 @@
     Byte *imageBytes = [self loadImage:image];
     if (imageBytes) { // UIImage的数据需要转成二进制才能上传，且不用jpg、png的NSData
         [self.sourceTexture replaceRegion:region
-                        mipmapLevel:0
-                          withBytes:imageBytes
-                        bytesPerRow:4 * image.size.width];
+                              mipmapLevel:0
+                                withBytes:imageBytes
+                              bytesPerRow:4 * image.size.width];
         free(imageBytes); // 需要释放资源
         imageBytes = NULL;
     }
@@ -163,48 +163,40 @@
 
 
 - (void)setupRenderTargetWithSize:(CGSize)size {
-    CFDictionaryRef empty; // empty value for attr value.
-    CFMutableDictionaryRef attrs;
-    empty = CFDictionaryCreate(kCFAllocatorDefault, // our empty IOSurface properties dictionary
-                               NULL,
-                               NULL,
-                               0,
-                               &kCFTypeDictionaryKeyCallBacks,
-                               &kCFTypeDictionaryValueCallBacks);
-    attrs = CFDictionaryCreateMutable(kCFAllocatorDefault,
-                                      1,
-                                      &kCFTypeDictionaryKeyCallBacks,
-                                      &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryRef empty= CFDictionaryCreate(kCFAllocatorDefault,
+                                              NULL,
+                                              NULL,
+                                              0,
+                                              &kCFTypeDictionaryKeyCallBacks,
+                                              &kCFTypeDictionaryValueCallBacks);
     
+    CFMutableDictionaryRef attrs= CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                                            1,
+                                                            &kCFTypeDictionaryKeyCallBacks,
+                                                            &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(attrs,
                          kCVPixelBufferIOSurfacePropertiesKey,
                          empty);
-    
     CVPixelBufferRef renderTarget;
     CVPixelBufferCreate(kCFAllocatorDefault, size.width, size.height,
                         kCVPixelFormatType_32BGRA,
                         attrs,
                         &renderTarget);
-    // in real life check the error return value of course.
     
+    size_t width = CVPixelBufferGetWidthOfPlane(renderTarget, 0);
+    size_t height = CVPixelBufferGetHeightOfPlane(renderTarget, 0);
+    MTLPixelFormat pixelFormat = MTLPixelFormatBGRA8Unorm;
     
-    // rendertarget
+    CVMetalTextureRef texture = NULL;
+    CVReturn status = CVMetalTextureCacheCreateTextureFromImage(NULL, self.textureCache, renderTarget, NULL, pixelFormat, width, height, 0, &texture);
+    if(status == kCVReturnSuccess)
     {
-        size_t width = CVPixelBufferGetWidthOfPlane(renderTarget, 0);
-        size_t height = CVPixelBufferGetHeightOfPlane(renderTarget, 0);
-        MTLPixelFormat pixelFormat = MTLPixelFormatBGRA8Unorm;
-        
-        CVMetalTextureRef texture = NULL;
-        CVReturn status = CVMetalTextureCacheCreateTextureFromImage(NULL, self.textureCache, renderTarget, NULL, pixelFormat, width, height, 0, &texture);
-        if(status == kCVReturnSuccess)
-        {
-            self.destTexture = CVMetalTextureGetTexture(texture);
-            self.renderPixelBuffer = renderTarget;
-            CFRelease(texture);
-        }
-        else {
-            NSAssert(NO, @"CVMetalTextureCacheCreateTextureFromImage fail");
-        }
+        self.destTexture = CVMetalTextureGetTexture(texture);
+        self.renderPixelBuffer = renderTarget;
+        CFRelease(texture);
+    }
+    else {
+        NSAssert(NO, @"CVMetalTextureCacheCreateTextureFromImage fail");
     }
 }
 
@@ -252,37 +244,38 @@
     // 每次渲染都要单独创建一个CommandBuffer
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     
+    // 渲染到纹理
     {
         // 创建计算指令的编码器
-        id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
+        id<MTLComputeCommandEncoder> renderToTextureEncoder = [commandBuffer computeCommandEncoder];
         // 设置计算管道，以调用shaders.metal中的内核计算函数
-        [computeEncoder setComputePipelineState:self.computePipelineState];
+        [renderToTextureEncoder setComputePipelineState:self.computePipelineState];
         // 输入纹理
-        [computeEncoder setTexture:self.sourceTexture
+        [renderToTextureEncoder setTexture:self.sourceTexture
                            atIndex:LYFragmentTextureIndexTextureSource];
         // 输出纹理
-        [computeEncoder setTexture:self.destTexture
+        [renderToTextureEncoder setTexture:self.destTexture
                            atIndex:LYFragmentTextureIndexTextureDest];
         // 计算区域
-        [computeEncoder dispatchThreadgroups:self.groupCount
+        [renderToTextureEncoder dispatchThreadgroups:self.groupCount
                        threadsPerThreadgroup:self.groupSize];
         
         // 调用endEncoding释放编码器，下个encoder才能创建
-        [computeEncoder endEncoding];
+        [renderToTextureEncoder endEncoding];
     }
     
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         if (kCVReturnSuccess == CVPixelBufferLockBaseAddress(self.renderPixelBuffer,
-                                                             kCVPixelBufferLock_ReadOnly)) {
+                                                             kCVPixelBufferLock_ReadOnly)) { // 获取到buffer
             dispatch_async(dispatch_get_main_queue(), ^{
-                UIImage *image = [self lyGetImageFromPixelBuffer:self.renderPixelBuffer];
+                UIImage *image = [self lyGetImageFromPixelBuffer:self.renderPixelBuffer]; // 转成UIImage
                 if (!self.imageView) {
                     self.imageView = [[UIImageView alloc] initWithImage:image];
                     [self.view addSubview:self.imageView];
                 }
-                
+                // OpenGL ES渲染
                 [self.glView displayPixelBuffer:self.renderPixelBuffer];
-                
+                // 释放资源
                 CVPixelBufferUnlockBaseAddress(self.renderPixelBuffer, kCVPixelBufferLock_ReadOnly);
             });
         }
