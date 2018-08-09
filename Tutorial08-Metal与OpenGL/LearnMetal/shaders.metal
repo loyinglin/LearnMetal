@@ -51,8 +51,8 @@ sobelKernel(texture2d<half, access::read>  sourceTexture  [[texture(LYFragmentTe
     // 边界保护
     if(grid.x <= destTexture.get_width() && grid.y <= destTexture.get_height())
     {
-        half4 color  = sourceTexture.read(grid); // 初始颜色
-        half  gray   = dot(color.rgb, kRec709Luma); // 转换成亮度
+        thread half4 color  = sourceTexture.read(grid); // 初始颜色
+        thread half gray   = dot(color.rgb, kRec709Luma); // 转换成亮度
         destTexture.write(half4(gray, gray, gray, 1.0), grid); // 写回对应纹理
     }
 }
