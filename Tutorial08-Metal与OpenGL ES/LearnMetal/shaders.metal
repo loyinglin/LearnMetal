@@ -41,18 +41,25 @@ samplingShader(RasterizerData input [[stage_in]], // stage_in表示这个数据�
 }
 
 
-constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722); // 把rgba转成亮度值
+void tranforms(device int *source_data,
+         threadgroup int *dest_data,
+               constant float *param_data) {/*...*/};
+
+
+//constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722); // 把rgba转成亮度值
 
 kernel void
 sobelKernel(texture2d<half, access::read>  sourceTexture  [[texture(LYFragmentTextureIndexTextureSource)]],
                 texture2d<half, access::write> destTexture [[texture(LYFragmentTextureIndexTextureDest)]],
-                uint2                          grid         [[thread_position_in_grid]])
+                uint2                          grid         [[thread_position_in_grid]],
+            device TransParam *param [[buffer(0)]], // param.kRec709Luma = half3(0.2126, 0.7152, 0.0722); // 把rgba转成亮度值
+            threadgroup float3 *localBuffer [[threadgroup(0)]]) // threadgroup地址空间，这里并没有使用到；
 {
     // 边界保护
     if(grid.x <= destTexture.get_width() && grid.y <= destTexture.get_height())
     {
         thread half4 color  = sourceTexture.read(grid); // 初始颜色
-        thread half gray   = dot(color.rgb, kRec709Luma); // 转换成亮度
+        thread half gray   = dot(color.rgb, half3(param->kRec709Luma)); // 转换成亮度
         destTexture.write(half4(gray, gray, gray, 1.0), grid); // 写回对应纹理
     }
 }

@@ -34,6 +34,8 @@
 
 @property (nonatomic, strong) id<MTLBuffer> vertices;
 @property (nonatomic, assign) NSUInteger numVertices;
+
+@property (nonatomic, strong) id<MTLBuffer> groupParams;
 @property (nonatomic, assign) MTLSize groupSize;
 @property (nonatomic, assign) MTLSize groupCount;
 
@@ -138,6 +140,12 @@
     _groupCount.width  = (self.sourceTexture.width  + self.groupSize.width -  1) / self.groupSize.width;
     _groupCount.height = (self.sourceTexture.height + self.groupSize.height - 1) / self.groupSize.height;
     _groupCount.depth = 1; // 我们是2D纹理，深度设为1
+    
+    
+    const TransParam params = {{0.2126, 0.7152, 0.0722}};
+    self.groupParams = [self.mtkView.device newBufferWithBytes:&params
+                                                     length:sizeof(params)
+                                                    options:MTLResourceStorageModeShared]; // 创建groupParam缓存
 }
 
 - (Byte *)loadImage:(UIImage *)image {
@@ -256,6 +264,10 @@
         // 输出纹理
         [renderToTextureEncoder setTexture:self.destTexture
                            atIndex:LYFragmentTextureIndexTextureDest];
+        
+        [renderToTextureEncoder setThreadgroupMemoryLength:(sizeof(vector_float3) + 15) / 16 * 16 atIndex:0];
+        [renderToTextureEncoder setBuffer:self.groupParams offset:0 atIndex:0];
+        
         // 计算区域
         [renderToTextureEncoder dispatchThreadgroups:self.groupCount
                        threadsPerThreadgroup:self.groupSize];

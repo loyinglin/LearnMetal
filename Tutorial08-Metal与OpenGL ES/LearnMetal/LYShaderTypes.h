@@ -30,6 +30,12 @@ typedef enum LYFragmentTextureIndex
 } LYFragmentTextureIndex;
 
 
+typedef struct
+{
+    vector_float3 kRec709Luma; // position的修饰符表示这个是顶点
+    
+} TransParam;
+
 
 
 #endif /* LYShaderTypes_h */
