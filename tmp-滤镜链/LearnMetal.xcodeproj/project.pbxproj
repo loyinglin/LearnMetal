@@ -16,9 +16,6 @@
 		FD68898D20DB432A002F8137 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD68898C20DB4329002F8137 /* MetalKit.framework */; };
 		FD68899220DB4832002F8137 /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = FD68899120DB4832002F8137 /* shaders.metal */; };
 		FD918ABB20DB4FBF00E4ED14 /* abc.png in Resources */ = {isa = PBXBuildFile; fileRef = FD918ABA20DB4FBF00E4ED14 /* abc.png */; };
-		FDE1FE0320E535F900B24B17 /* LYOpenGLView.m in Sources */ = {isa = PBXBuildFile; fileRef = FDE1FE0020E535F900B24B17 /* LYOpenGLView.m */; };
-		FDE1FE0420E535F900B24B17 /* Shader.fsh in Resources */ = {isa = PBXBuildFile; fileRef = FDE1FE0120E535F900B24B17 /* Shader.fsh */; };
-		FDE1FE0520E535F900B24B17 /* Shader.vsh in Resources */ = {isa = PBXBuildFile; fileRef = FDE1FE0220E535F900B24B17 /* Shader.vsh */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,10 +33,6 @@
 		FD68899120DB4832002F8137 /* shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
 		FD68899420DB4B49002F8137 /* LYShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LYShaderTypes.h; sourceTree = "<group>"; };
 		FD918ABA20DB4FBF00E4ED14 /* abc.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = abc.png; sourceTree = "<group>"; };
-		FDE1FDFF20E535F900B24B17 /* LYOpenGLView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LYOpenGLView.h; sourceTree = "<group>"; };
-		FDE1FE0020E535F900B24B17 /* LYOpenGLView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LYOpenGLView.m; sourceTree = "<group>"; };
-		FDE1FE0120E535F900B24B17 /* Shader.fsh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; path = Shader.fsh; sourceTree = "<group>"; };
-		FDE1FE0220E535F900B24B17 /* Shader.vsh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; path = Shader.vsh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,7 +67,6 @@
 		FD68897120DB40C7002F8137 /* LearnMetal */ = {
 			isa = PBXGroup;
 			children = (
-				FDE1FDFE20E535F900B24B17 /* GL */,
 				FD918AB920DB4FBF00E4ED14 /* CommonResources */,
 				FD68897220DB40C7002F8137 /* AppDelegate.h */,
 				FD68897320DB40C7002F8137 /* AppDelegate.m */,
@@ -114,17 +106,6 @@
 			);
 			name = CommonResources;
 			path = ../../CommonResources;
-			sourceTree = "<group>";
-		};
-		FDE1FDFE20E535F900B24B17 /* GL */ = {
-			isa = PBXGroup;
-			children = (
-				FDE1FDFF20E535F900B24B17 /* LYOpenGLView.h */,
-				FDE1FE0020E535F900B24B17 /* LYOpenGLView.m */,
-				FDE1FE0120E535F900B24B17 /* Shader.fsh */,
-				FDE1FE0220E535F900B24B17 /* Shader.vsh */,
-			);
-			path = GL;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -186,10 +167,8 @@
 			files = (
 				FD918ABB20DB4FBF00E4ED14 /* abc.png in Resources */,
 				FD68897F20DB40CA002F8137 /* LaunchScreen.storyboard in Resources */,
-				FDE1FE0520E535F900B24B17 /* Shader.vsh in Resources */,
 				FD68897C20DB40CA002F8137 /* Assets.xcassets in Resources */,
 				FD68897A20DB40C7002F8137 /* Main.storyboard in Resources */,
-				FDE1FE0420E535F900B24B17 /* Shader.fsh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -201,7 +180,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD68899220DB4832002F8137 /* shaders.metal in Sources */,
-				FDE1FE0320E535F900B24B17 /* LYOpenGLView.m in Sources */,
 				FD68897720DB40C7002F8137 /* ViewController.m in Sources */,
 				FD68898220DB40CA002F8137 /* main.m in Sources */,
 				FD68897420DB40C7002F8137 /* AppDelegate.m in Sources */,
