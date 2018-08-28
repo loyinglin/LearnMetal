@@ -99,7 +99,7 @@
 }
 
 - (void)setupTexture {
-    UIImage *image = [UIImage imageNamed:@"abc"];
+    UIImage *image = [UIImage imageNamed:@"234.jpeg"];
     // 纹理描述符
     MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
     textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm; // 图片的格式要和数据一致
@@ -154,6 +154,7 @@
     
     CGContextRelease(spriteContext);
     
+    
     Byte *color = (Byte *)spriteData;
     for (int i = 0; i < width * height; ++i) {
         for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
@@ -167,6 +168,30 @@
         }
         puts("");
         NSLog(@"------");
+    }
+    const int SIZE = 256;
+    int rgb[3][SIZE], sum = (int)(width * height);
+    double val[3] = {0};
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < SIZE; ++j) {
+            val[i] += localBuffer.channel[i][j];
+            rgb[i][j] = val[i] * (SIZE - 1) / sum;
+        }
+    }
+    
+    for (int i = 0; i < width * height; ++i) {
+        for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
+            uint c = color[i * 4 + j];
+            color[i * 4 + j] = rgb[j][c];
+        }
+    }
+    
+    memset(&localBuffer, 0, sizeof(LYLocalBuffer));
+    for (int i = 0; i < width * height; ++i) {
+        for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
+            uint c = color[i * 4 + j];
+            ++localBuffer.channel[j][c];
+        }
     }
     
     return spriteData;

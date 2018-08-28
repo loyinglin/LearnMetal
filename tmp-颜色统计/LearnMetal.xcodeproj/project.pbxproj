@@ -16,6 +16,8 @@
 		FD68898D20DB432A002F8137 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD68898C20DB4329002F8137 /* MetalKit.framework */; };
 		FD68899220DB4832002F8137 /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = FD68899120DB4832002F8137 /* shaders.metal */; };
 		FD918ABB20DB4FBF00E4ED14 /* abc.png in Resources */ = {isa = PBXBuildFile; fileRef = FD918ABA20DB4FBF00E4ED14 /* abc.png */; };
+		FDD878032134E0E800A04922 /* 123.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = FDD878022134E0E800A04922 /* 123.jpeg */; };
+		FDD878052134E1D600A04922 /* 234.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = FDD878042134E1D500A04922 /* 234.jpeg */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +35,8 @@
 		FD68899120DB4832002F8137 /* shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
 		FD68899420DB4B49002F8137 /* LYShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LYShaderTypes.h; sourceTree = "<group>"; };
 		FD918ABA20DB4FBF00E4ED14 /* abc.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = abc.png; sourceTree = "<group>"; };
+		FDD878022134E0E800A04922 /* 123.jpeg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = 123.jpeg; sourceTree = "<group>"; };
+		FDD878042134E1D500A04922 /* 234.jpeg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = 234.jpeg; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +73,8 @@
 			children = (
 				FD918AB920DB4FBF00E4ED14 /* CommonResources */,
 				FD68897220DB40C7002F8137 /* AppDelegate.h */,
+				FDD878022134E0E800A04922 /* 123.jpeg */,
+				FDD878042134E1D500A04922 /* 234.jpeg */,
 				FD68897320DB40C7002F8137 /* AppDelegate.m */,
 				FD68897520DB40C7002F8137 /* ViewController.h */,
 				FD68897620DB40C7002F8137 /* ViewController.m */,
@@ -166,7 +172,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD918ABB20DB4FBF00E4ED14 /* abc.png in Resources */,
+				FDD878032134E0E800A04922 /* 123.jpeg in Resources */,
 				FD68897F20DB40CA002F8137 /* LaunchScreen.storyboard in Resources */,
+				FDD878052134E1D600A04922 /* 234.jpeg in Resources */,
 				FD68897C20DB40CA002F8137 /* Assets.xcassets in Resources */,
 				FD68897A20DB40C7002F8137 /* Main.storyboard in Resources */,
 			);

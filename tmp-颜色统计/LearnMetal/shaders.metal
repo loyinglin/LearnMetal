@@ -44,9 +44,6 @@ samplingShader(RasterizerData input [[stage_in]], // stage_in表示这个数据�
     return float4(colorSample);
 }
 
-
-constant float3 kRec709Luma = float3(0.2126, 0.7152, 0.0722); // 把rgba转成亮度值
-
 kernel void
 grayKernel(texture2d<float, access::read>  sourceTexture  [[texture(LYFragmentTextureIndexTextureSource)]],
            texture2d<float, access::write> destTexture [[texture(LYFragmentTextureIndexTextureDest)]],
@@ -57,8 +54,7 @@ grayKernel(texture2d<float, access::read>  sourceTexture  [[texture(LYFragmentTe
     if(grid.x <= destTexture.get_width() && grid.y <= destTexture.get_height())
     {
         float4 color  = sourceTexture.read(grid); // 初始颜色
-        float  gray     = dot(color.rgb, kRec709Luma); // 转换成亮度
-        destTexture.write(float4(gray, gray, gray, 1.0), grid); // 写回对应纹理
+        destTexture.write(color, grid); // 写回对应纹理
         float3 size(LY_CHANNEL_SIZE - 1);
         uint3 rgb = uint3(color.rgb * size); //
         atomic_fetch_add_explicit(&out.channel[0][rgb.r], 1, memory_order_relaxed);
