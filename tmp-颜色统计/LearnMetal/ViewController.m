@@ -25,11 +25,13 @@
 @property (nonatomic, assign) NSUInteger numVertices;
 @property (nonatomic, assign) MTLSize groupSize;
 @property (nonatomic, assign) MTLSize groupCount;
-@property (nonatomic, strong) id<MTLBuffer> colorBuffer; //
-@property (nonatomic, strong) id<MTLBuffer> convertBuffer;
+@property (nonatomic, strong) id<MTLBuffer> colorBuffer; // 统计颜色的buffer
+@property (nonatomic, strong) id<MTLBuffer> convertBuffer; // 转换颜色的buffer
 
-@property (nonatomic, assign) BOOL isDrawing;
+@property (nonatomic, assign) BOOL isDrawing; // 增加正在绘制的属性，以避免多次compute的影响
 
+@property (nonatomic, strong) UIImageView *imageView;
+@property (nonatomic, strong) UIImageView *convertImageView;
 @end
 
 @implementation ViewController
@@ -119,11 +121,22 @@
         free(imageBytes); // 需要释放资源
         imageBytes = NULL;
     }
+    
+    if (!self.imageView) { // 对比的image
+        self.imageView = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, CGRectGetWidth(self.view.bounds) / 2, CGRectGetWidth(self.view.bounds) / 2)];
+        self.imageView.image = image;
+        [self.view addSubview:self.imageView];
+    }
+    if (!self.convertImageView) { // 对比的convertImage
+        self.convertImageView = [[UIImageView alloc] initWithFrame:CGRectMake(CGRectGetWidth(self.view.bounds) / 2, 0, CGRectGetWidth(self.view.bounds) / 2, CGRectGetWidth(self.view.bounds) / 2)];
+        self.convertImageView.image = [self cpuConvertImage:image];
+        [self.view addSubview:self.convertImageView];
+    }
 }
 
 - (void)setupBuffer {
-    self.colorBuffer = [self.mtkView.device newBufferWithLength:sizeof(LYLocalBuffer) options:MTLResourceStorageModeShared];
-    self.convertBuffer = [self.mtkView.device newBufferWithLength:sizeof(LYLocalBuffer) options:MTLResourceStorageModeShared];
+    self.colorBuffer = [self.mtkView.device newBufferWithLength:sizeof(LYLocalBuffer) options:MTLResourceStorageModeShared]; //申请颜色统计的buffer，用于computeShader统计
+    self.convertBuffer = [self.mtkView.device newBufferWithLength:sizeof(LYLocalBuffer) options:MTLResourceStorageModeShared]; //申请颜色转换的buffer，用于fragmentShader转换颜色
 }
 
 - (void)setupThreadGroup {
@@ -161,20 +174,44 @@
             ++cpuColorBuffer.channel[j][c];
         }
     }
-    /*
+    
+    return spriteData;
+}
+
+- (UIImage *)cpuConvertImage:(UIImage *)image {
+    // 1获取图片的CGImageRef
+    CGImageRef spriteImage = image.CGImage;
+    
+    // 2 读取图片的大小
+    size_t width = CGImageGetWidth(spriteImage);
+    size_t height = CGImageGetHeight(spriteImage);
+    
+    Byte * spriteData = (Byte *) calloc(width * height * 4, sizeof(Byte)); //rgba共4个byte
+    
+    CGContextRef spriteContext = CGBitmapContextCreate(spriteData, width, height, 8, width*4,
+                                                       CGImageGetColorSpace(spriteImage), kCGImageAlphaPremultipliedLast);
+    
+    // 3在CGContextRef上绘图
+    CGContextDrawImage(spriteContext, CGRectMake(0, 0, width, height), spriteImage);
+    
+    
+    // CPU进行处理
+    Byte *color = (Byte *)spriteData;
+    
+    // 这里可以用CPU进行均衡化处理
     for (int i = 0; i < LY_CHANNEL_NUM; ++i) {
         for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
-            printf("%u ", localBuffer.channel[i][j]);
+            printf("%u ", cpuColorBuffer.channel[i][j]);
         }
         puts("");
-        NSLog(@"------");
+        puts("------");
     }
     const int SIZE = 256;
     int rgb[3][SIZE], sum = (int)(width * height);
     double val[3] = {0};
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < SIZE; ++j) {
-            val[i] += localBuffer.channel[i][j];
+            val[i] += cpuColorBuffer.channel[i][j];
             rgb[i][j] = val[i] * (SIZE - 1) / sum;
         }
     }
@@ -185,17 +222,11 @@
             color[i * 4 + j] = rgb[j][c];
         }
     }
+    UIImage *convertImage = [UIImage imageWithCGImage:CGBitmapContextCreateImage(spriteContext)];
     
-    memset(&localBuffer, 0, sizeof(LYLocalBuffer));
-    for (int i = 0; i < width * height; ++i) {
-        for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
-            uint c = color[i * 4 + j];
-            ++localBuffer.channel[j][c];
-        }
-    }
-    */
-     
-    return spriteData;
+    CGContextRelease(spriteContext);
+    
+    return convertImage;
 }
 
 - (void)customDraw {
@@ -225,15 +256,7 @@
         __strong ViewController* strongSelf = weakSelf;
         LYLocalBuffer *buffer = (LYLocalBuffer *)strongSelf.colorBuffer.contents;
 
-        // 对比CPU和GPU处理的结果
-        /*
-        for (int i = 0; i < LY_CHANNEL_NUM; ++i) {
-            for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
-                if (buffer->channel[i][j] != strongSelf->localBuffer.channel[i][j]) {
-                    printf("%d, %d, gpuBuffer:%u  cpuBuffer:%u \n", i, j, buffer->channel[i][j], strongSelf->localBuffer.channel[i][j]);
-                }
-            }
-        }*/
+
         LYLocalBuffer *convertBuffer = self.convertBuffer.contents;
         memset(convertBuffer, 0, self.convertBuffer.length);
         int sum = (int)(self.sourceTexture.width * self.sourceTexture.height);
@@ -243,7 +266,9 @@
                 val[i] += buffer->channel[i][j];
                 convertBuffer->channel[i][j] = val[i] * 1.0 * (LY_CHANNEL_SIZE - 1) / sum;
                 
+                // 对比CPU和GPU处理的结果
                 if (buffer->channel[i][j] != strongSelf->cpuColorBuffer.channel[i][j]) {
+                    // 如果不相同，则把对应的结果输出
                     printf("%d, %d, gpuBuffer:%u  cpuBuffer:%u \n", i, j, buffer->channel[i][j], strongSelf->cpuColorBuffer.channel[i][j]);
                 }
             }
