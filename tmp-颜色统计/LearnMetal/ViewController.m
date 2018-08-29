@@ -20,19 +20,21 @@
 @property (nonatomic, strong) id<MTLComputePipelineState> computePipelineState;
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
 @property (nonatomic, strong) id<MTLTexture> sourceTexture;
-@property (nonatomic, strong) id<MTLTexture> destTexture;
 
 @property (nonatomic, strong) id<MTLBuffer> vertices;
 @property (nonatomic, assign) NSUInteger numVertices;
 @property (nonatomic, assign) MTLSize groupSize;
 @property (nonatomic, assign) MTLSize groupCount;
-@property (nonatomic, strong) id<MTLBuffer> colorBuffer;
+@property (nonatomic, strong) id<MTLBuffer> colorBuffer; //
+@property (nonatomic, strong) id<MTLBuffer> convertBuffer;
+
+@property (nonatomic, assign) BOOL isDrawing;
 
 @end
 
 @implementation ViewController
 {
-    LYLocalBuffer localBuffer;
+    LYLocalBuffer cpuColorBuffer;
 }
 
 - (void)viewDidLoad {
@@ -47,9 +49,8 @@
     self.viewportSize = CGSizeMake(self.mtkView.drawableSize.width, self.mtkView.drawableSize.height);
     
     [self customInit];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [self customDraw];
-    });
+    
+//    [self customDraw];
 }
 
 - (void)customInit {
@@ -118,13 +119,11 @@
         free(imageBytes); // 需要释放资源
         imageBytes = NULL;
     }
-    
-    textureDescriptor.usage = MTLTextureUsageShaderWrite | MTLTextureUsageShaderRead; // 目标纹理在compute管道需要写，在render管道需要读
-    self.destTexture = [self.mtkView.device newTextureWithDescriptor:textureDescriptor];
 }
 
 - (void)setupBuffer {
     self.colorBuffer = [self.mtkView.device newBufferWithLength:sizeof(LYLocalBuffer) options:MTLResourceStorageModeShared];
+    self.convertBuffer = [self.mtkView.device newBufferWithLength:sizeof(LYLocalBuffer) options:MTLResourceStorageModeShared];
 }
 
 - (void)setupThreadGroup {
@@ -154,14 +153,15 @@
     
     CGContextRelease(spriteContext);
     
-    
+    // CPU进行处理
     Byte *color = (Byte *)spriteData;
     for (int i = 0; i < width * height; ++i) {
         for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
             uint c = color[i * 4 + j];
-            ++localBuffer.channel[j][c];
+            ++cpuColorBuffer.channel[j][c];
         }
     }
+    /*
     for (int i = 0; i < LY_CHANNEL_NUM; ++i) {
         for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
             printf("%u ", localBuffer.channel[i][j]);
@@ -193,7 +193,8 @@
             ++localBuffer.channel[j][c];
         }
     }
-    
+    */
+     
     return spriteData;
 }
 
@@ -209,9 +210,6 @@
         // 输入纹理
         [computeEncoder setTexture:self.sourceTexture
                            atIndex:LYFragmentTextureIndexTextureSource];
-        // 输出纹理
-        [computeEncoder setTexture:self.destTexture
-                           atIndex:LYFragmentTextureIndexTextureDest];
         
         [computeEncoder setBuffer:self.colorBuffer offset:0 atIndex:LYKernelBufferIndexOutput];
         
@@ -222,18 +220,44 @@
         [computeEncoder endEncoding];
     }
     
-    
+    __weak ViewController* weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> commandBuffer) {
-        LYLocalBuffer *buffer = (LYLocalBuffer *)self.colorBuffer.contents;
+        __strong ViewController* strongSelf = weakSelf;
+        LYLocalBuffer *buffer = (LYLocalBuffer *)strongSelf.colorBuffer.contents;
+
+        // 对比CPU和GPU处理的结果
+        /*
         for (int i = 0; i < LY_CHANNEL_NUM; ++i) {
             for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
-                if (buffer->channel[i][j] != localBuffer.channel[i][j]) {
-                    printf("%d, %d, gpuBuffer:%u  cpuBuffer:%u \n", i, j, buffer->channel[i][j], localBuffer.channel[i][j]);
+                if (buffer->channel[i][j] != strongSelf->localBuffer.channel[i][j]) {
+                    printf("%d, %d, gpuBuffer:%u  cpuBuffer:%u \n", i, j, buffer->channel[i][j], strongSelf->localBuffer.channel[i][j]);
+                }
+            }
+        }*/
+        LYLocalBuffer *convertBuffer = self.convertBuffer.contents;
+        memset(convertBuffer, 0, self.convertBuffer.length);
+        int sum = (int)(self.sourceTexture.width * self.sourceTexture.height);
+        int val[3] = {0};
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
+                val[i] += buffer->channel[i][j];
+                convertBuffer->channel[i][j] = val[i] * 1.0 * (LY_CHANNEL_SIZE - 1) / sum;
+                
+                if (buffer->channel[i][j] != strongSelf->cpuColorBuffer.channel[i][j]) {
+                    printf("%d, %d, gpuBuffer:%u  cpuBuffer:%u \n", i, j, buffer->channel[i][j], strongSelf->cpuColorBuffer.channel[i][j]);
                 }
             }
         }
+        memset(buffer, 0, strongSelf.colorBuffer.length);
+        [strongSelf renderNewImage];
     }];
     
+    [commandBuffer commit]; // 提交；
+    
+}
+
+- (void)renderNewImage {
+    id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
     MTLRenderPassDescriptor *renderPassDescriptor = self.mtkView.currentRenderPassDescriptor;
     // MTLRenderPassDescriptor描述一系列attachments的值，类似GL的FrameBuffer；同时也用来创建MTLRenderCommandEncoder
     if(renderPassDescriptor != nil)
@@ -245,10 +269,14 @@
         
         [renderEncoder setVertexBuffer:self.vertices
                                 offset:0
-                               atIndex:0]; // 设置顶点缓存
+                               atIndex:LYVertexBufferIndexVertices]; // 设置顶点缓存
         
-        [renderEncoder setFragmentTexture:self.destTexture
-                                  atIndex:0]; // 设置纹理
+        [renderEncoder setFragmentTexture:self.sourceTexture
+                                  atIndex:LYFragmentTextureIndexTextureSource]; // 设置纹理
+        
+        [renderEncoder setFragmentBuffer:self.convertBuffer
+                                  offset:0
+                                 atIndex:LYFragmentBufferIndexConvert];
         
         [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
                           vertexStart:0
@@ -258,9 +286,8 @@
         
         [commandBuffer presentDrawable:self.mtkView.currentDrawable]; // 显示
     }
-    
-    [commandBuffer commit]; // 提交；
-    
+    [commandBuffer commit];
+    self.isDrawing = NO;
 }
 #pragma mark - delegate
 
@@ -269,6 +296,10 @@
 }
 
 - (void)drawInMTKView:(MTKView *)view {
+    if (!self.isDrawing) {
+        self.isDrawing = YES;
+        [self customDraw];
+    }
 }
 
 

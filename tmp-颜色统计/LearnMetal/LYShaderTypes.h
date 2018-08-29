@@ -20,22 +20,24 @@ typedef struct
 
 typedef struct
 {
-    unsigned int channel[LY_CHANNEL_NUM][LY_CHANNEL_SIZE]; // rgb三个通道，每个通道有256种可能
+    int channel[LY_CHANNEL_NUM][LY_CHANNEL_SIZE]; // rgb三个通道，每个通道有256种可能
 } LYLocalBuffer;
 
 
-typedef enum LYVertexInputIndex
+typedef enum LYVertexBufferIndex
 {
-    LYVertexInputIndexVertices     = 0,
-} LYVertexInputIndex;
-
+    LYVertexBufferIndexVertices     = 0,
+} LYVertexBufferIndex;
 
 typedef enum LYFragmentTextureIndex
 {
     LYFragmentTextureIndexTextureSource     = 0,
-    LYFragmentTextureIndexTextureDest       = 1,
 } LYFragmentTextureIndex;
 
+typedef enum LYFragmentBufferIndex
+{
+    LYFragmentBufferIndexConvert     = 0,
+} LYFragmentBufferIndex;
 
 typedef enum LYKernelBufferIndex
 {
