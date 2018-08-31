@@ -26,23 +26,28 @@ typedef struct
 
 typedef enum LYVertexBufferIndex
 {
-    LYVertexBufferIndexVertices     = 0,
+    LYVertexBufferIndexVertices     = 0, // 顶点shader的buffer输入
 } LYVertexBufferIndex;
 
 typedef enum LYFragmentTextureIndex
 {
-    LYFragmentTextureIndexTextureSource     = 0,
+    LYFragmentTextureIndexSource     = 0, // 像素shader的纹理输入
 } LYFragmentTextureIndex;
 
 typedef enum LYFragmentBufferIndex
 {
-    LYFragmentBufferIndexConvert     = 0,
+    LYFragmentBufferIndexConvert     = 0, // 像素shader的buffer输入
 } LYFragmentBufferIndex;
 
 typedef enum LYKernelBufferIndex
 {
-    LYKernelBufferIndexOutput     = 0,
+    LYKernelBufferIndexOutput     = 0, // 计算shader的buffer，输出计算结果
 } LYKernelBufferIndex;
+
+typedef enum LYKernelTextureIndex
+{
+    LYKernelTextureIndexSource     = 0, // 计算shader的纹理输入
+} LYKernelTextureIndex;
 
 
 

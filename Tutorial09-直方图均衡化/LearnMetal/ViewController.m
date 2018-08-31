@@ -166,15 +166,6 @@
     
     CGContextRelease(spriteContext);
     
-    // CPU进行处理
-    Byte *color = (Byte *)spriteData;
-    for (int i = 0; i < width * height; ++i) {
-        for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
-            uint c = color[i * 4 + j];
-            ++cpuColorBuffer.channel[j][c];
-        }
-    }
-    
     return spriteData;
 }
 
@@ -195,10 +186,17 @@
     CGContextDrawImage(spriteContext, CGRectMake(0, 0, width, height), spriteImage);
     
     
-    // CPU进行处理
-    Byte *color = (Byte *)spriteData;
+    // 下面是用CPU进行均衡化处理
     
-    // 这里可以用CPU进行均衡化处理
+    // CPU进行统计
+    Byte *color = (Byte *)spriteData;
+    for (int i = 0; i < width * height; ++i) {
+        for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
+            uint c = color[i * 4 + j];
+            ++cpuColorBuffer.channel[j][c];
+        }
+    }
+    // 打印统计的结果
     for (int i = 0; i < LY_CHANNEL_NUM; ++i) {
         for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
             printf("%u ", cpuColorBuffer.channel[i][j]);
@@ -206,8 +204,10 @@
         puts("");
         puts("------");
     }
+    
     int rgb[3][LY_CHANNEL_SIZE], sum = (int)(width * height);
     int val[3] = {0};
+    // 颜色映射
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
             val[i] += cpuColorBuffer.channel[i][j];
@@ -215,6 +215,7 @@
         }
     }
     
+    // 值修改
     for (int i = 0; i < width * height; ++i) {
         for (int j = 0; j < LY_CHANNEL_NUM; ++j) {
             uint c = color[i * 4 + j];
@@ -238,14 +239,11 @@
         // 设置计算管道，以调用shaders.metal中的内核计算函数
         [computeEncoder setComputePipelineState:self.computePipelineState];
         // 输入纹理
-        [computeEncoder setTexture:self.sourceTexture
-                           atIndex:LYFragmentTextureIndexTextureSource];
-        
+        [computeEncoder setTexture:self.sourceTexture atIndex:LYKernelTextureIndexSource];
+        // 统计结果buffer
         [computeEncoder setBuffer:self.colorBuffer offset:0 atIndex:LYKernelBufferIndexOutput];
-        
         // 计算区域
-        [computeEncoder dispatchThreadgroups:self.groupCount
-                       threadsPerThreadgroup:self.groupSize];
+        [computeEncoder dispatchThreadgroups:self.groupCount threadsPerThreadgroup:self.groupSize];
         // 调用endEncoding释放编码器，下个encoder才能创建
         [computeEncoder endEncoding];
     }
@@ -253,16 +251,13 @@
     __weak ViewController* weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> commandBuffer) {
         __strong ViewController* strongSelf = weakSelf;
-        LYLocalBuffer *buffer = (LYLocalBuffer *)strongSelf.colorBuffer.contents;
-
-
-        LYLocalBuffer *convertBuffer = self.convertBuffer.contents;
-        memset(convertBuffer, 0, self.convertBuffer.length);
-        int sum = (int)(self.sourceTexture.width * self.sourceTexture.height);
-        int val[3] = {0};
+        LYLocalBuffer *buffer = (LYLocalBuffer *)strongSelf.colorBuffer.contents; // GPU统计的结果
+        LYLocalBuffer *convertBuffer = self.convertBuffer.contents; // 颜色转换的buffer
+        int sum = (int)(self.sourceTexture.width * self.sourceTexture.height); // 总的像素点
+        int val[3] = {0}; // 累计和
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < LY_CHANNEL_SIZE; ++j) {
-                val[i] += buffer->channel[i][j];
+                val[i] += buffer->channel[i][j]; // 当前[0, j]累计出现的总次数
                 convertBuffer->channel[i][j] = val[i] * 1.0 * (LY_CHANNEL_SIZE - 1) / sum;
                 
                 // 对比CPU和GPU处理的结果
@@ -296,7 +291,7 @@
                                atIndex:LYVertexBufferIndexVertices]; // 设置顶点缓存
         
         [renderEncoder setFragmentTexture:self.sourceTexture
-                                  atIndex:LYFragmentTextureIndexTextureSource]; // 设置纹理
+                                  atIndex:LYFragmentTextureIndexSource]; // 设置纹理
         
         [renderEncoder setFragmentBuffer:self.convertBuffer
                                   offset:0
