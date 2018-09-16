@@ -56,15 +56,18 @@ samplingShader(RasterizerData input [[stage_in]], // stage_in表示这个数据�
     float maskU = -0.148 * greenMaskColor.r - 0.291 * greenMaskColor.g + 0.439 * greenMaskColor.b;
     float maskV = 0.439 * greenMaskColor.r - 0.368 * greenMaskColor.g - 0.071 * greenMaskColor.b;
     float3 maskYUV = float3(maskY, maskU, maskV) + float3(16.0 / 255.0, 0.5, 0.5);
-    
-    float3 greenYUV = float3(greenTextureY.sample(textureSampler, input.textureCoordinate).r,
+    // 绿幕视频读取出来的图像，yuv颜色空间
+    float3 greenVideoYUV = float3(greenTextureY.sample(textureSampler, input.textureCoordinate).r,
                               greenTextureUV.sample(textureSampler, input.textureCoordinate).rg);
-    float3 greenColor = convertMatrix->matrix * (greenYUV + convertMatrix->offset);
-    
-    float3 normalYUV = float3(normalTextureY.sample(textureSampler, input.textureCoordinate).r,
+    // yuv转成rgb
+    float3 greenVideoRGB = convertMatrix->matrix * (greenVideoYUV + convertMatrix->offset);
+    // 正常视频读取出来的图像，yuv颜色空间
+    float3 normalVideoYUV = float3(normalTextureY.sample(textureSampler, input.textureCoordinate).r,
                              normalTextureUV.sample(textureSampler, input.textureCoordinate).rg);
-    float3 normalColor = convertMatrix->matrix * (normalYUV + convertMatrix->offset);
-    
-    float blendValue = smoothstep(0.1, 0.3, distance(maskYUV.yz, greenYUV.yz));
-    return float4(mix(normalColor, greenColor, blendValue), 1.0); // blendValue=0，表示接近绿色，取normalColor；
+    // yuv转成rgb
+    float3 normalVideoRGB = convertMatrix->matrix * (normalVideoYUV + convertMatrix->offset);
+    // 计算需要替换的值
+    float blendValue = smoothstep(0.1, 0.3, distance(maskYUV.yz, greenVideoYUV.yz));
+    // 混合两个图像
+    return float4(mix(normalVideoRGB, greenVideoRGB, blendValue), 1.0); // blendValue=0，表示接近绿色，取normalColor；
 }
