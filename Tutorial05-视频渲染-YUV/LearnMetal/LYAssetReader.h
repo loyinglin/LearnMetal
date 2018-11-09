@@ -3,7 +3,7 @@
 //  LearnOpenGLESWithGPUImage
 //
 //  Created by loyinglin on 2018/5/25.
-//  Copyright © 2018年 林伟池. All rights reserved.
+//  Copyright © 2018年 loyinglin. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
